@@ -10,7 +10,7 @@ const CLERK_KEY =  "pk_test_bWlnaHR5LWdhemVsbGUtNDAuY2xlcmsuYWNjb3VudHMuZGV2JA";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <ClerkProvider publishableKey={CLERK_KEY} afterSignOutUrl={window.location.href}>
+    <ClerkProvider publishableKey={CLERK_KEY} afterSignOutUrl="/">
       <App />
     </ClerkProvider>
   </React.StrictMode>
