@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 
 import cameras as cam_store
 import routing
+import db
 
 load_dotenv()
 
@@ -22,6 +23,12 @@ def _preload():
 
 
 threading.Thread(target=_preload, daemon=True).start()
+
+try:
+    db.init_db()
+    print("[db] schema ready")
+except Exception as e:
+    print(f"[db] init failed: {e}")
 
 
 @app.get("/api/health")
@@ -158,6 +165,41 @@ def post_loop():
     })
 
 
+@app.get("/api/routes")
+def get_routes():
+    user_id = request.headers.get("X-User-Id", "anonymous")
+    rows = db.fetch_routes(user_id)
+    return jsonify([{
+        "id": r[0],
+        "name": r[1],
+        "waypoints": r[2],
+        "mode": r[3],
+        "actualMiles": r[4],
+        "date": r[5].strftime("%-m/%-d/%Y"),
+    } for r in rows])
+
+
+@app.post("/api/routes")
+def save_route():
+    user_id = request.headers.get("X-User-Id", "anonymous")
+    body = request.get_json(silent=True) or {}
+    new_id = db.insert_route(
+        user_id=user_id,
+        name=body.get("name") or "Untitled Route",
+        waypoints=body.get("waypoints", []),
+        mode=body.get("mode", "walk"),
+        miles=float(body.get("miles", 0)),
+    )
+    return jsonify({"id": new_id}), 201
+
+
+@app.delete("/api/routes/<int:route_id>")
+def delete_route(route_id):
+    user_id = request.headers.get("X-User-Id", "anonymous")
+    db.delete_route(route_id, user_id)
+    return jsonify({"ok": True})
+
+
 if __name__ == "__main__":
-    port = int(os.getenv("FLASK_PORT", 8000))
-    app.run(debug=True, port=port)
+    port = int(os.getenv("PORT", os.getenv("FLASK_PORT", 8000)))
+    app.run(host="0.0.0.0", port=port)

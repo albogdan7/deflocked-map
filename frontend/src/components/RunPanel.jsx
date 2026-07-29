@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { UserButton, SignInButton, SignedIn, SignedOut } from "@clerk/clerk-react";
 import { LOOP_COLORS } from "./MapView";
 
 const PACE_MIN_MI = { walk: 18, bike: 5 };
@@ -141,6 +142,7 @@ export default function RunPanel({
   onCollapse,
   soloRoute, setSoloRoute,
   gpsStartAddress, onSwap,
+  isSignedIn,
 }) {
   const busy = loading;
   const actualMiles = routeStats?.length ?? 0;
@@ -181,8 +183,21 @@ export default function RunPanel({
             <h1><span>Deflock</span>Fitness</h1>
             <div className="panel-subtitle">Avoid ALPR cameras on your route</div>
           </div>
-          <button className="panel-collapse-btn" onClick={onCollapse} title="Minimize panel">‹</button>
+          <div className="header-actions">
+            <SignedOut>
+              <SignInButton mode="modal">
+                <button className="auth-btn" title="Sign in to sync routes across devices">Sign in</button>
+              </SignInButton>
+            </SignedOut>
+            <SignedIn>
+              <UserButton />
+            </SignedIn>
+            <button className="panel-collapse-btn" onClick={onCollapse} title="Minimize panel">‹</button>
+          </div>
         </div>
+        {isSignedIn === false && savedRoutes.length === 0 && (
+          <div className="auth-hint">Sign in to sync routes across devices</div>
+        )}
       </div>
 
       {/* Address search */}
