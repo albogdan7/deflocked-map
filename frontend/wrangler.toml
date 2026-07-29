@@ -1,4 +1,4 @@
-name = "deflockfitness"
+name = "deflocked-map"
 main = "worker.js"
 compatibility_date = "2024-09-23"
 
@@ -6,3 +6,6 @@ compatibility_date = "2024-09-23"
 directory = "./dist"
 not_found_handling = "single-page-application"
 binding = "ASSETS"
+
+[vars]
+BACKEND_URL = "https://deflocked-map.onrender.com"

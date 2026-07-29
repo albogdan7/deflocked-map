@@ -22,7 +22,12 @@ def _decode_geojson(raw: bytes) -> list:
 
 def load_cameras():
     global _cameras, _lons, _lats, _loaded
-    resp = requests.get(CAMERAS_URL, timeout=120)
+    resp = requests.get(CAMERAS_URL, timeout=120, headers={
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "*/*",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Referer": "https://www.dontgetflocked.com/",
+    })
     resp.raise_for_status()
     features = _decode_geojson(resp.content)
 
