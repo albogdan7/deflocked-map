@@ -5,7 +5,8 @@ import App from "./App";
 import "./index.css";
 import "leaflet/dist/leaflet.css";
 
-const CLERK_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+// public key
+const CLERK_KEY =  "pk_test_bWlnaHR5LWdhemVsbGUtNDAuY2xlcmsuYWNjb3VudHMuZGV2JA";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
