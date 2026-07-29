@@ -1,9 +1,11 @@
 import gzip
 import json
+import os
 import threading
 import requests
 
 CAMERAS_URL = "https://data.dontgetflocked.com/cameras.geojson.gz"
+BUNDLED_FILE = os.path.join(os.path.dirname(__file__), "cameras.geojson.gz")
 
 _cameras = []
 _lons = []
@@ -22,14 +24,22 @@ def _decode_geojson(raw: bytes) -> list:
 
 def load_cameras():
     global _cameras, _lons, _lats, _loaded
-    resp = requests.get(CAMERAS_URL, timeout=120, headers={
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "*/*",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Referer": "https://www.dontgetflocked.com/",
-    })
-    resp.raise_for_status()
-    features = _decode_geojson(resp.content)
+
+    # Try bundled file first (always present in the Docker image)
+    if os.path.exists(BUNDLED_FILE):
+        with open(BUNDLED_FILE, "rb") as f:
+            raw = f.read()
+    else:
+        resp = requests.get(CAMERAS_URL, timeout=120, headers={
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "*/*",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Referer": "https://www.dontgetflocked.com/",
+        })
+        resp.raise_for_status()
+        raw = resp.content
+
+    features = _decode_geojson(raw)
 
     lons, lats = [], []
     valid = []
@@ -52,16 +62,19 @@ def load_cameras():
 
 def ensure_loaded():
     if not _loaded:
-        load_cameras()
+        try:
+            load_cameras()
+        except Exception as e:
+            print(f"[cameras] load error: {e}")
 
 
 def get_in_bbox(min_lon: float, min_lat: float, max_lon: float, max_lat: float) -> list:
     ensure_loaded()
     with _lock:
+        if not _loaded:
+            return []
         cams, lons, lats = _cameras, _lons, _lats
     return [
         cams[i] for i in range(len(cams))
         if min_lon <= lons[i] <= max_lon and min_lat <= lats[i] <= max_lat
     ]
-
-
