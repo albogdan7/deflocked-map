@@ -1,27 +1,48 @@
 import { useState } from "react";
 
-async function geocode(query) {
+interface RouteArgs {
+  origin: [number, number] | null;
+  destination: [number, number] | null;
+  mode: string;
+  avoidCameras: boolean;
+  _geoError?: string;
+}
+
+interface RoutePanelProps {
+  onRoute: (args: RouteArgs) => void;
+  onClear: () => void;
+  loading: boolean;
+  error: string | null;
+  routeStats: {
+    length?: number;
+    time?: number;
+    camerasNearby?: number;
+    camerasOnRoute?: number;
+  } | null;
+}
+
+async function geocode(query: string): Promise<[number, number]> {
   const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`;
   const res = await fetch(url, { headers: { "Accept-Language": "en" } });
-  const data = await res.json();
+  const data = await res.json() as Array<{ lat: string; lon: string }>;
   if (!data.length) throw new Error(`Could not find "${query}"`);
   return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
 }
 
-function formatTime(seconds) {
+function formatTime(seconds: number | undefined): string {
   if (!seconds) return "—";
   const m = Math.round(seconds / 60);
   return m < 60 ? `${m} min` : `${Math.floor(m / 60)}h ${m % 60}m`;
 }
 
-export default function RoutePanel({ onRoute, onClear, loading, error, routeStats }) {
+export default function RoutePanel({ onRoute, onClear, loading, error, routeStats }: RoutePanelProps) {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [mode, setMode] = useState("walk");
   const [avoidCameras, setAvoidCameras] = useState(true);
   const [geocoding, setGeocoding] = useState(false);
 
-  async function handleSubmit(e) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!from.trim() || !to.trim()) return;
     setGeocoding(true);
@@ -29,8 +50,7 @@ export default function RoutePanel({ onRoute, onClear, loading, error, routeStat
       const [origin, destination] = await Promise.all([geocode(from), geocode(to)]);
       onRoute({ origin, destination, mode, avoidCameras });
     } catch (err) {
-      // surface geocode errors via parent error state
-      onRoute({ origin: null, destination: null, mode, avoidCameras, _geoError: err.message });
+      onRoute({ origin: null, destination: null, mode, avoidCameras, _geoError: err instanceof Error ? err.message : String(err) });
     } finally {
       setGeocoding(false);
     }
@@ -71,14 +91,14 @@ export default function RoutePanel({ onRoute, onClear, loading, error, routeStat
             className={`mode-btn${mode === "walk" ? " active" : ""}`}
             onClick={() => setMode("walk")}
           >
-            🚶 Walk
+            Walk
           </button>
           <button
             type="button"
             className={`mode-btn${mode === "bike" ? " active" : ""}`}
             onClick={() => setMode("bike")}
           >
-            🚲 Bike
+            Bike
           </button>
         </div>
 

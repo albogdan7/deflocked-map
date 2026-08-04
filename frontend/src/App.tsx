@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useUser } from "@clerk/clerk-react";
 import MapView from "./components/MapView";
 import RunPanel from "./components/RunPanel";
+import type { Waypoint, CameraFeature, RouteGeoJson, LoopOption, RouteStats, SavedRoute } from "./types";
 
 const LS_KEY = "deflockFitness_savedRoutes";
 
@@ -12,30 +13,30 @@ export default function App() {
   const { isSignedIn, user } = useUser();
   const userId = user?.id;
 
-  const [waypoints, setWaypoints] = useState([]);
-  const [route, setRoute] = useState(null);
-  const [camerasOnRoute, setCamerasOnRoute] = useState([]);
-  const [viewportCameras, setViewportCameras] = useState([]);
-  const [mapBounds, setMapBounds] = useState(null);
+  const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
+  const [route, setRoute] = useState<RouteGeoJson | null>(null);
+  const [camerasOnRoute, setCamerasOnRoute] = useState<CameraFeature[]>([]);
+  const [viewportCameras, setViewportCameras] = useState<CameraFeature[]>([]);
+  const [mapBounds, setMapBounds] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [routeStats, setRouteStats] = useState(null);
+  const [error, setError] = useState<string | null>(null);
+  const [routeStats, setRouteStats] = useState<RouteStats | null>(null);
   const [mode, setMode] = useState("walk");
   const [avoidCameras, setAvoidCameras] = useState(true);
   const [targetMiles, setTargetMiles] = useState(3);
 
-  const [loopOptions, setLoopOptions] = useState([]);
+  const [loopOptions, setLoopOptions] = useState<LoopOption[]>([]);
   const [activeLoopIdx, setActiveLoopIdx] = useState(0);
 
   // ── GPS tracking ──────────────────────────────────────────────────────────────
   const [panelOpen, setPanelOpen] = useState(true);
   const [soloRoute, setSoloRoute] = useState(false);
   const [gpsEnabled, setGpsEnabled] = useState(false);
-  const [gpsPosition, setGpsPosition] = useState(null);
-  const [gpsError, setGpsError] = useState(null);
-  const [gpsStartAddress, setGpsStartAddress] = useState(null);
-  const gpsStartSetRef = useRef(false); // true once we've placed the GPS-derived start
-  const userSetStartRef = useRef(false); // true once user explicitly picked a FROM address
+  const [gpsPosition, setGpsPosition] = useState<{ lat: number; lon: number } | null>(null);
+  const [gpsError, setGpsError] = useState<string | null>(null);
+  const [gpsStartAddress, setGpsStartAddress] = useState<string | null>(null);
+  const gpsStartSetRef = useRef(false);
+  const userSetStartRef = useRef(false);
 
   // Set start waypoint from GPS on the first fix after enabling —
   // but only if the user hasn't already chosen a FROM address manually.
@@ -57,8 +58,8 @@ export default function App() {
       { headers: { "Accept-Language": "en" } }
     )
       .then((r) => r.json())
-      .then((d) => {
-        if (userSetStartRef.current) return; // user's address takes priority
+      .then((d: { address?: Record<string, string>; display_name?: string; name?: string }) => {
+        if (userSetStartRef.current) return;
         const a = d.address || {};
         const street = [a.house_number, a.road].filter(Boolean).join(" ");
         const city = a.city || a.town || a.village || a.suburb || "";
@@ -74,17 +75,16 @@ export default function App() {
   const [showHeatmap, setShowHeatmap] = useState(false);
 
   // ── Saved routes — DB when signed in, localStorage when not ─────────────────
-  const [savedRoutes, setSavedRoutes] = useState([]);
+  const [savedRoutes, setSavedRoutes] = useState<SavedRoute[]>([]);
 
   useEffect(() => {
-    if (isSignedIn === undefined) return; // Clerk still loading
+    if (isSignedIn === undefined) return;
     if (isSignedIn && userId) {
       fetch("/api/routes", { headers: { "X-User-Id": userId } })
         .then((r) => r.json())
-        .then((rows) => {
+        .then((rows: SavedRoute[]) => {
           setSavedRoutes(rows);
-          // Migrate any localStorage routes into the user's account
-          const local = JSON.parse(localStorage.getItem(LS_KEY) || "[]");
+          const local: SavedRoute[] = JSON.parse(localStorage.getItem(LS_KEY) || "[]");
           if (!local.length) return;
           Promise.all(
             local.map((r) =>
@@ -114,7 +114,7 @@ export default function App() {
   }, [isSignedIn, userId]);
 
   // ── Fetch multi-waypoint route ────────────────────────────────────────────────
-  const fetchRoute = useCallback(async (wps, currentMode, currentAvoid) => {
+  const fetchRoute = useCallback(async (wps: Waypoint[], currentMode: string, currentAvoid: boolean) => {
     setLoading(true);
     setError(null);
     try {
@@ -127,8 +127,12 @@ export default function App() {
           avoid_cameras: currentAvoid,
         }),
       });
-      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Route failed"); }
-      const data = await res.json();
+      if (!res.ok) { const d = await res.json() as { error?: string }; throw new Error(d.error || "Route failed"); }
+      const data = await res.json() as {
+        route: RouteGeoJson;
+        cameras_on_route?: CameraFeature[];
+        cameras_nearby?: number;
+      };
       setRoute(data.route);
       setCamerasOnRoute(data.cameras_on_route || []);
       setRouteStats({
@@ -137,7 +141,7 @@ export default function App() {
         camerasOnRoute: (data.cameras_on_route || []).length,
       });
     } catch (e) {
-      setError(e.message);
+      setError(e instanceof Error ? e.message : String(e));
       setRoute(null);
       setRouteStats(null);
       setCamerasOnRoute([]);
@@ -147,7 +151,6 @@ export default function App() {
   }, []);
 
   // Auto-route when ≥2 waypoints change (debounced 500ms).
-  // Skip when loop options are active — selecting/inserting waypoints manages routing directly.
   useEffect(() => {
     if (loopOptions.length > 0) return;
     if (waypoints.length < 2) {
@@ -161,13 +164,13 @@ export default function App() {
   }, [waypoints, mode, avoidCameras, fetchRoute, loopOptions]);
 
   // ── Waypoint CRUD ─────────────────────────────────────────────────────────────
-  const handleAddWaypoint = useCallback((lat, lon) => {
+  const handleAddWaypoint = useCallback((lat: number, lon: number) => {
     setWaypoints((prev) => [...prev, { id: newId(), lat, lon }]);
     setLoopOptions([]);
     setOutBackActive(false);
   }, []);
 
-  const handleInsertWaypoint = useCallback((idx, lat, lon) => {
+  const handleInsertWaypoint = useCallback((idx: number, lat: number, lon: number) => {
     setWaypoints((prev) => {
       const next = [...prev];
       next.splice(idx, 0, { id: newId(), lat, lon });
@@ -177,11 +180,11 @@ export default function App() {
     setOutBackActive(false);
   }, []);
 
-  const handleUpdateWaypoint = useCallback((id, lat, lon) => {
+  const handleUpdateWaypoint = useCallback((id: number, lat: number, lon: number) => {
     setWaypoints((prev) => prev.map((wp) => (wp.id === id ? { ...wp, lat, lon } : wp)));
   }, []);
 
-  const handleRemoveWaypoint = useCallback((id) => {
+  const handleRemoveWaypoint = useCallback((id: number) => {
     setWaypoints((prev) => prev.filter((wp) => wp.id !== id));
     setLoopOptions([]);
     setOutBackActive(false);
@@ -197,12 +200,12 @@ export default function App() {
     setActiveLoopIdx(0);
     setOutBackActive(false);
     setSoloRoute(false);
-    userSetStartRef.current = false; // allow GPS to take over again after full clear
+    userSetStartRef.current = false;
   }, []);
 
   // ── Set start / end from address geocode ─────────────────────────────────────
-  const handleSetStart = useCallback((lat, lon) => {
-    userSetStartRef.current = true; // user explicitly picked FROM — GPS won't override
+  const handleSetStart = useCallback((lat: number, lon: number) => {
+    userSetStartRef.current = true;
     setWaypoints((prev) => {
       const rest = prev.slice(1);
       return [{ id: newId(), lat, lon }, ...rest];
@@ -211,7 +214,7 @@ export default function App() {
     setOutBackActive(false);
   }, []);
 
-  const handleSetEnd = useCallback((lat, lon) => {
+  const handleSetEnd = useCallback((lat: number, lon: number) => {
     setWaypoints((prev) => {
       if (prev.length === 0) return [{ id: newId(), lat, lon }];
       const base = prev.length === 1 ? prev : prev.slice(0, -1);
@@ -235,7 +238,6 @@ export default function App() {
   // ── Generate loop (3 options) ─────────────────────────────────────────────────
   const handleGenerateLoop = useCallback(async () => {
     if (waypoints.length < 1) return;
-    // If both FROM and TO are set, generate the loop from the TO location
     const start = waypoints[waypoints.length - 1];
     setLoading(true);
     setError(null);
@@ -250,10 +252,18 @@ export default function App() {
           avoid_cameras: avoidCameras,
         }),
       });
-      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Loop failed"); }
-      const data = await res.json();
+      if (!res.ok) { const d = await res.json() as { error?: string }; throw new Error(d.error || "Loop failed"); }
+      const data = await res.json() as {
+        options?: Array<{
+          route: RouteGeoJson;
+          waypoints: [number, number][];
+          actual_miles: number;
+          cameras_on_route?: CameraFeature[];
+        }>;
+        cameras_nearby?: number;
+      };
 
-      const options = (data.options || []).map((opt) => ({
+      const options: LoopOption[] = (data.options || []).map((opt) => ({
         route: opt.route,
         waypoints: opt.waypoints.map((wp) => ({ id: newId(), lat: wp[0], lon: wp[1] })),
         actualMiles: opt.actual_miles,
@@ -274,7 +284,7 @@ export default function App() {
         camerasOnRoute: options[0].camerasOnRoute.length,
       });
     } catch (e) {
-      setError(e.message);
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
@@ -285,12 +295,11 @@ export default function App() {
     if (!route) return;
     const name = mode === "bike" ? "DeflockFitness Bike Route" : "DeflockFitness Walk Route";
     const coords = route.geometry.coordinates;
-    // Synthetic timestamps at a realistic pace — required by Strava/MapMyRun for activity import.
     const speedMps = (mode === "bike" ? 10 : 3.5) * 1609.344 / 3600;
     const startTime = new Date();
     let cumSec = 0;
 
-    function havM(la1, lo1, la2, lo2) {
+    function havM(la1: number, lo1: number, la2: number, lo2: number) {
       const R = 6371000, p1 = la1 * Math.PI / 180, p2 = la2 * Math.PI / 180;
       const dp = (la2 - la1) * Math.PI / 180, dl = (lo2 - lo1) * Math.PI / 180;
       const a = Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
@@ -329,10 +338,8 @@ ${pts}
     const coords = route.geometry.coordinates;
     const travelmode = mode === "bike" ? "bicycling" : "walking";
 
-    // Build a fixed-size sample that always includes the first and last coords.
-    // Google Maps supports up to 9 intermediate waypoints (11 total with origin+dest).
     const MAX_MID = 8;
-    const sampled = [coords[0]];
+    const sampled: [number, number][] = [coords[0]];
     if (coords.length > 2) {
       const step = Math.max(1, Math.floor((coords.length - 1) / (MAX_MID + 1)));
       for (let i = step; i < coords.length - 1 && sampled.length <= MAX_MID; i += step) {
@@ -350,7 +357,7 @@ ${pts}
   }, [route, mode]);
 
   // ── Select a different loop option ───────────────────────────────────────────
-  const handleSelectLoop = useCallback((idx) => {
+  const handleSelectLoop = useCallback((idx: number) => {
     const opt = loopOptions[idx];
     if (!opt) return;
     setActiveLoopIdx(idx);
@@ -359,17 +366,18 @@ ${pts}
     setRouteStats((prev) => ({
       ...prev,
       length: opt.actualMiles,
+      camerasNearby: prev?.camerasNearby ?? 0,
       camerasOnRoute: opt.camerasOnRoute.length,
     }));
   }, [loopOptions]);
 
   // ── GPS callbacks ─────────────────────────────────────────────────────────────
-  const handleGpsPosition = useCallback((lat, lon) => {
+  const handleGpsPosition = useCallback((lat: number, lon: number) => {
     setGpsError(null);
     setGpsPosition({ lat, lon });
   }, []);
 
-  const handleGpsError = useCallback((msg) => {
+  const handleGpsError = useCallback((msg: string) => {
     setGpsError(msg);
   }, []);
 
@@ -405,7 +413,7 @@ ${pts}
   }, []);
 
   // ── Saved routes ──────────────────────────────────────────────────────────────
-  const handleSaveRoute = useCallback(async (name) => {
+  const handleSaveRoute = useCallback(async (name: string) => {
     if (!route) return;
     const body = {
       name: name || `Route ${new Date().toLocaleDateString()}`,
@@ -420,11 +428,11 @@ ${pts}
           headers: { "Content-Type": "application/json", "X-User-Id": userId },
           body: JSON.stringify(body),
         });
-        const { id } = await res.json();
+        const { id } = await res.json() as { id: number | string };
         setSavedRoutes((prev) => [{ id, name: body.name, waypoints: body.waypoints, mode: body.mode, actualMiles: body.miles, date: new Date().toLocaleDateString() }, ...prev].slice(0, 50));
       } catch {}
     } else {
-      const entry = { id: Date.now(), name: body.name, waypoints: body.waypoints, mode: body.mode, actualMiles: body.miles, date: new Date().toLocaleDateString() };
+      const entry: SavedRoute = { id: Date.now(), name: body.name, waypoints: body.waypoints, mode: body.mode, actualMiles: body.miles, date: new Date().toLocaleDateString() };
       setSavedRoutes((prev) => {
         const updated = [entry, ...prev].slice(0, 50);
         try { localStorage.setItem(LS_KEY, JSON.stringify(updated)); } catch {}
@@ -433,7 +441,7 @@ ${pts}
     }
   }, [route, waypoints, mode, routeStats, isSignedIn, userId]);
 
-  const handleLoadSavedRoute = useCallback((entry) => {
+  const handleLoadSavedRoute = useCallback((entry: SavedRoute) => {
     setMode(entry.mode);
     setWaypoints(entry.waypoints.map((wp) => ({ id: newId(), lat: wp.lat, lon: wp.lon })));
     setLoopOptions([]);
@@ -441,7 +449,7 @@ ${pts}
     setOutBackActive(false);
   }, []);
 
-  const handleDeleteSavedRoute = useCallback(async (id) => {
+  const handleDeleteSavedRoute = useCallback(async (id: number | string) => {
     setSavedRoutes((prev) => {
       const updated = prev.filter((r) => r.id !== id);
       if (!isSignedIn) {

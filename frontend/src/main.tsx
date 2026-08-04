@@ -5,10 +5,9 @@ import App from "./App";
 import "./index.css";
 import "leaflet/dist/leaflet.css";
 
-// public key
-const CLERK_KEY =  "pk_test_bWlnaHR5LWdhemVsbGUtNDAuY2xlcmsuYWNjb3VudHMuZGV2JA";
+const CLERK_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string;
 
-ReactDOM.createRoot(document.getElementById("root")).render(
+ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <ClerkProvider publishableKey={CLERK_KEY} afterSignOutUrl="/">
       <App />

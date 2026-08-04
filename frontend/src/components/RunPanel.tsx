@@ -1,17 +1,36 @@
 import { useState, useRef, useEffect } from "react";
 import { UserButton, SignInButton, SignedIn, SignedOut } from "@clerk/clerk-react";
 import { LOOP_COLORS } from "./MapView";
+import type { LoopOption, RouteStats, SavedRoute } from "../types";
 
-const PACE_MIN_MI = { walk: 18, bike: 5 };
+const PACE_MIN_MI: Record<string, number> = { walk: 18, bike: 5 };
 
-function estTime(miles, mode) {
+function estTime(miles: number, mode: string): string | null {
   if (!miles) return null;
   const min = Math.round(miles * (PACE_MIN_MI[mode] ?? 18));
   return min < 60 ? `${min} min` : `${Math.floor(min / 60)}h ${min % 60}m`;
 }
 
 // ── Address autocomplete ──────────────────────────────────────────────────────
-function formatLabel(s) {
+interface NominatimResult {
+  place_id: string;
+  lat: string;
+  lon: string;
+  display_name: string;
+  address?: {
+    house_number?: string;
+    road?: string;
+    city?: string;
+    town?: string;
+    village?: string;
+    suburb?: string;
+    state?: string;
+    postcode?: string;
+    name?: string;
+  };
+}
+
+function formatLabel(s: NominatimResult): { primary: string; secondary: string } {
   const a = s.address || {};
   const street = [a.house_number, a.road].filter(Boolean).join(" ");
   const locality = a.city || a.town || a.village || a.suburb || "";
@@ -22,34 +41,43 @@ function formatLabel(s) {
   return { primary, secondary };
 }
 
-async function nominatim(q, viewbox, bounded, limit = 5) {
+async function nominatim(q: string, viewbox: string | null, bounded: boolean, limit = 5): Promise<NominatimResult[]> {
   const p = new URLSearchParams({ q, format: "json", limit: String(limit), countrycodes: "us", addressdetails: "1" });
   if (viewbox) {
     p.set("viewbox", viewbox);
     if (bounded) p.set("bounded", "1");
   }
   const res = await fetch(`https://nominatim.openstreetmap.org/search?${p}`, { headers: { "Accept-Language": "en" } });
-  return res.json();
+  return res.json() as Promise<NominatimResult[]>;
 }
 
-function AddressSearch({ label, placeholder, onSelect, disabled, viewbox, syncValue, onValueChange }) {
+interface AddressSearchProps {
+  label: string;
+  placeholder: string;
+  onSelect: (lat: number, lon: number) => void;
+  disabled: boolean;
+  viewbox: string | null;
+  syncValue?: string | null;
+  onValueChange?: (value: string) => void;
+}
+
+function AddressSearch({ label, placeholder, onSelect, disabled, viewbox, syncValue, onValueChange }: AddressSearchProps) {
   const [value, setValue] = useState("");
-  const [suggestions, setSuggestions] = useState([]);
-  const debounceRef = useRef(null);
+  const [suggestions, setSuggestions] = useState<NominatimResult[]>([]);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (syncValue != null) { setValue(syncValue); setSuggestions([]); }
   }, [syncValue]);
 
-  function handleChange(e) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const q = e.target.value;
     setValue(q);
     onValueChange?.(q);
-    clearTimeout(debounceRef.current);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
     if (q.trim().length < 2) { setSuggestions([]); return; }
     debounceRef.current = setTimeout(async () => {
       try {
-        // Try viewport-bounded first; fall back to nationwide if empty
         let data = await nominatim(q, viewbox, true);
         if (!data.length) data = await nominatim(q, viewbox, false);
         setSuggestions(data);
@@ -59,7 +87,7 @@ function AddressSearch({ label, placeholder, onSelect, disabled, viewbox, syncVa
     }, 350);
   }
 
-  function pick(s) {
+  function pick(s: NominatimResult) {
     const { primary, secondary } = formatLabel(s);
     const text = secondary ? `${primary}, ${secondary}` : primary;
     setValue(text);
@@ -68,7 +96,7 @@ function AddressSearch({ label, placeholder, onSelect, disabled, viewbox, syncVa
     onSelect(parseFloat(s.lat), parseFloat(s.lon));
   }
 
-  async function handleKeyDown(e) {
+  async function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Escape") { setSuggestions([]); return; }
     if (e.key === "Enter") {
       e.preventDefault();
@@ -83,12 +111,11 @@ function AddressSearch({ label, placeholder, onSelect, disabled, viewbox, syncVa
     }
   }
 
-  // Close on blur — delayed so suggestion mousedown fires first
   function handleBlur() {
     setTimeout(() => setSuggestions([]), 150);
   }
 
-  useEffect(() => () => clearTimeout(debounceRef.current), []);
+  useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
 
   return (
     <div>
@@ -128,6 +155,40 @@ function AddressSearch({ label, placeholder, onSelect, disabled, viewbox, syncVa
 }
 
 // ── Panel ─────────────────────────────────────────────────────────────────────
+interface RunPanelProps {
+  mode: string;
+  setMode: (mode: string) => void;
+  avoidCameras: boolean;
+  setAvoidCameras: (avoid: boolean) => void;
+  targetMiles: number;
+  setTargetMiles: (miles: number) => void;
+  waypointCount: number;
+  loopOptions: LoopOption[];
+  activeLoopIdx: number;
+  loading: boolean;
+  error: string | null;
+  routeStats: RouteStats | null;
+  mapBounds: string | null;
+  onSetStart: (lat: number, lon: number) => void;
+  onSetEnd: (lat: number, lon: number) => void;
+  onClear: () => void;
+  onCloseLoop: () => void;
+  onGenerateLoop: () => void;
+  onSelectLoop: (idx: number) => void;
+  onExportGPX: () => void;
+  googleMapsUrl: string | null;
+  savedRoutes: SavedRoute[];
+  onSaveRoute: (name: string) => void;
+  onLoadSavedRoute: (route: SavedRoute) => void;
+  onDeleteSavedRoute: (id: number | string) => void;
+  onCollapse: () => void;
+  soloRoute: boolean;
+  setSoloRoute: React.Dispatch<React.SetStateAction<boolean>>;
+  gpsStartAddress: string | null;
+  onSwap: () => void;
+  isSignedIn: boolean;
+}
+
 export default function RunPanel({
   mode, setMode,
   avoidCameras, setAvoidCameras,
@@ -143,7 +204,7 @@ export default function RunPanel({
   soloRoute, setSoloRoute,
   gpsStartAddress, onSwap,
   isSignedIn,
-}) {
+}: RunPanelProps) {
   const busy = loading;
   const actualMiles = routeStats?.length ?? 0;
   const pct = targetMiles > 0 ? Math.min(100, (actualMiles / targetMiles) * 100) : 0;
@@ -166,7 +227,7 @@ export default function RunPanel({
     onSwap();
   }
 
-  function doSave(name) {
+  function doSave(name: string) {
     onSaveRoute(name.trim() || `Route ${new Date().toLocaleDateString()}`);
     setSaving(false);
     setSaveName("");
@@ -279,7 +340,7 @@ export default function RunPanel({
               <button
                 key={idx}
                 className={`loop-opt-btn${idx === activeLoopIdx ? " active" : ""}`}
-                style={{ "--opt-color": LOOP_COLORS[idx % LOOP_COLORS.length] }}
+                style={{ "--opt-color": LOOP_COLORS[idx % LOOP_COLORS.length] } as React.CSSProperties}
                 onClick={() => onSelectLoop(idx)}
               >
                 <span className="opt-dot" />
