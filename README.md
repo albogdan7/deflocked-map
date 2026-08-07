@@ -1,97 +1,177 @@
-# DeflockFitness
+<a id="readme-top"></a>
 
-**Live app → https://deflocked-map.albertbogdan2006.workers.dev**
+[![Contributors][contributors-shield]][contributors-url]
+[![Forks][forks-shield]][forks-url]
+[![Stargazers][stars-shield]][stars-url]
+[![Issues][issues-shield]][issues-url]
 
-A privacy-first route planner for walking, running, and cycling. DeflockFitness generates routes that actively avoid Automated License Plate Reader (ALPR) cameras, using a dataset of 31,000+ real-world camera locations across the US.
+<br />
+<div align="center">
+  <h3 align="center">DeflockFitness</h3>
+
+  <p align="center">
+    Route planner for walking, running, and cycling that actively avoids ALPR surveillance cameras.
+    <br />
+    <a href="https://deflocked-map.albertbogdan2006.workers.dev"><strong>Live App »</strong></a>
+    <br />
+    <br />
+    <a href="https://github.com/albogdan7/deflocked-map/issues/new?labels=bug">Report Bug</a>
+    &middot;
+    <a href="https://github.com/albogdan7/deflocked-map/issues/new?labels=enhancement">Request Feature</a>
+  </p>
+</div>
+
+<details>
+  <summary>Table of Contents</summary>
+  <ol>
+    <li><a href="#about-the-project">About The Project</a></li>
+    <li><a href="#built-with">Built With</a></li>
+    <li>
+      <a href="#getting-started">Getting Started</a>
+      <ul>
+        <li><a href="#prerequisites">Prerequisites</a></li>
+        <li><a href="#installation">Installation</a></li>
+      </ul>
+    </li>
+    <li><a href="#usage">Usage</a></li>
+    <li><a href="#environment-variables">Environment Variables</a></li>
+    <li><a href="#deployment">Deployment</a></li>
+    <li><a href="#roadmap">Roadmap</a></li>
+    <li><a href="#contributing">Contributing</a></li>
+    <li><a href="#contact">Contact</a></li>
+    <li><a href="#acknowledgments">Acknowledgments</a></li>
+  </ol>
+</details>
 
 ---
 
-## Features
+## About The Project
 
-- **Camera-avoidant routing** — two-pass Valhalla routing that detects cameras near your path and reroutes around them
-- **Loop generation** — auto-generate 3 loop route options from any start point at a target distance
-- **Out & Back, Reverse, Close Loop** — quick route manipulation tools
-- **Heatmap mode** — visualize camera density as a fog overlay at zoom 12+
-- **GPS tracking** — snap start waypoint to your current location
-- **Save routes** — signed-in users get Neon Postgres sync across devices; guests get localStorage
-- **GPX export** — download routes with synthetic timestamps for Strava / MapMyRun import
+Automated License Plate Reader (ALPR) cameras are mounted on poles, traffic lights, and buildings across the US — logging the time, location, and plate number of every vehicle and person that passes. DeflockFitness lets you plan routes that actively avoid them.
+
+It uses a dataset of **31,000+ real-world ALPR camera locations** sourced from [DontGetFlocked](https://www.dontgetflocked.com) and the [Valhalla](https://github.com/valhalla/valhalla) open-source routing engine. When a route passes within 75m of a camera's detection cone, it re-routes around it automatically.
+
+**Key features:**
+- **Camera-avoidant routing** — two-pass routing: first finds the fastest path, then re-routes around any cameras detected within 75m of the route
+- **Directional FOV awareness** — cameras with a known bearing only trigger avoidance when the route passes through their field of view, not just proximity
+- **Loop generation** — generate 3 loop options from any start point at a target distance (0.5–26.2 mi), each with iterative camera avoidance passes
+- **Route manipulation** — Out & Back, Reverse, Close Loop, drag-to-reshape, right-click to remove waypoints
+- **Camera heatmap** — visualize camera density as a fog overlay at zoom 12+
+- **GPS tracking** — auto-set start waypoint from your current location
+- **Saved routes** — signed-in users sync routes to Postgres across devices; guests use localStorage
+- **GPX export** — download with synthetic pace-based timestamps for direct import into Strava, Garmin, or MapMyRun
 - **Google Maps handoff** — open any route in Google Maps for turn-by-turn navigation
 
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
 ---
 
-## Stack
+## Built With
+
+[![TypeScript][TypeScript-badge]][TypeScript-url]
+[![React][React.js]][React-url]
+[![Vite][Vite-badge]][Vite-url]
+[![FastAPI][FastAPI-badge]][FastAPI-url]
+[![Python][Python-badge]][Python-url]
+[![Docker][Docker-badge]][Docker-url]
+[![Cloudflare][Cloudflare-badge]][Cloudflare-url]
 
 | Layer | Tech |
 |---|---|
-| Frontend | React 18, Vite, Leaflet, Clerk auth |
-| Styling | Nunito font, Duolingo-inspired dark mode |
-| Backend | Flask 3.1.1, Python, Docker |
-| Routing engine | Valhalla (external API) |
-| Camera data | dontgetflocked.com — bundled as `cameras.geojson.gz` |
-| Database | Neon Postgres (pg8000, no libpq) |
-| Auth | Clerk (Google OAuth) |
+| Frontend | React 18, TypeScript, Vite, Leaflet, Clerk auth |
+| Backend | FastAPI, Python 3.12, UV, Pydantic |
+| Routing engine | Valhalla (public API via `valhalla1.openstreetmap.de`) |
+| Camera data | DontGetFlocked — bundled as `cameras.geojson.gz`, loaded into memory at startup |
+| Database | Neon Postgres via pg8000 (no libpq dependency) |
+| Auth | Clerk (Google OAuth, modal sign-in) |
 | Frontend hosting | Cloudflare Workers + Assets |
 | Backend hosting | Render (Docker, free tier) |
 
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
 ---
 
-## Local Development
+## Getting Started
 
 ### Prerequisites
 
-- Python 3.11+
-- Node.js 18+
-- A [Clerk](https://clerk.com) account (free)
-- A [Neon](https://neon.tech) Postgres database (free)
+- Python 3.12+
+- Node.js 20+
+- A [Clerk](https://clerk.com) account (free) — for auth
+- A [Neon](https://neon.tech) Postgres database (free) — for saved routes
 
-### 1. Clone
+### Installation
 
-```bash
-git clone https://github.com/albogdan7/deflocked-map.git
-cd deflocked-map
-```
+1. Clone the repo
+   ```sh
+   git clone https://github.com/albogdan7/deflocked-map.git
+   cd deflocked-map
+   ```
 
-### 2. Backend
+2. Set up the backend
+   ```sh
+   cd backend
+   python -m venv .venv
+   source .venv/bin/activate  # Windows: .venv\Scripts\activate
+   pip install fastapi "uvicorn[standard]" python-dotenv pg8000 requests pydantic
+   ```
 
-```bash
-cd backend
-pip install -r requirements.txt
-```
+   Create `backend/.env`:
+   ```env
+   DATABASE_URL=postgresql://user:password@host/dbname
+   ```
 
-Create `backend/.env`:
+   Start the server:
+   ```sh
+   uvicorn app:app --port 8000 --reload
+   # Runs on http://localhost:8000
+   # Docs at http://localhost:8000/docs
+   ```
 
-```env
-DATABASE_URL=postgresql+pg8000://user:password@host/dbname
-CLERK_SECRET_KEY=sk_test_...
-```
+3. Set up the frontend (new terminal)
+   ```sh
+   cd frontend
+   npm install
+   ```
 
-Start the server:
+   Create `frontend/.env`:
+   ```env
+   VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
+   ```
 
-```bash
-python app.py
-# Runs on http://localhost:8000
-```
+   Start the dev server:
+   ```sh
+   npm run dev
+   # Runs on http://localhost:5173
+   # /api/* proxies to http://localhost:8000
+   ```
 
-### 3. Frontend
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-```bash
-cd frontend
-npm install
-```
+---
 
-Create `frontend/.env`:
+## Usage
 
-```env
-VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
-```
+**Point-to-point route:** Type a start and end address in the panel, or click the map to place waypoints. The route auto-generates and re-routes around any cameras.
 
-Start the dev server:
+**Loop route:** Enter a start address (or enable GPS), set a target distance with the slider, and click **Generate Loop**. Three options are shown — pick one by clicking it on the map or in the panel.
 
-```bash
-npm run dev
-# Runs on http://localhost:5173
-# API calls proxy to http://localhost:8000 via vite.config.js
-```
+**Route tools (floating buttons on the map):**
+| Button | What it does |
+|---|---|
+| GPS | Snaps the start waypoint to your current location |
+| HEAT | Toggles camera density heatmap (zoom ≥ 12) |
+| RETURN | Closes the route back to the start point |
+| REVERSE | Flips the direction of the route |
+| OUT+BACK | Mirrors the route back to the start, doubling the distance |
+| UNDO | Removes the last placed waypoint |
+| CLEAR | Clears all waypoints |
+
+**Drag to reshape:** Click and drag anywhere on the active route line to insert a new waypoint at that position.
+
+**Export:** Use **↓ GPX** to download the exact route for Strava/Garmin import, or **Maps ↗** to open an approximation in Google Maps.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ---
 
@@ -99,58 +179,119 @@ npm run dev
 
 ### Backend (`backend/.env`)
 
-| Variable | Description |
-|---|---|
-| `DATABASE_URL` | Neon Postgres connection string |
-| `CLERK_SECRET_KEY` | Clerk secret key (for future server-side validation) |
+| Variable | Required | Description |
+|---|---|---|
+| `DATABASE_URL` | Yes | Neon Postgres connection string |
+| `VALHALLA_URL` | No | Custom Valhalla instance (defaults to public OSM server) |
+| `PORT` | No | Server port (defaults to 8000) |
 
 ### Frontend (`frontend/.env`)
 
-| Variable | Description |
-|---|---|
-| `VITE_CLERK_PUBLISHABLE_KEY` | Clerk publishable key |
+| Variable | Required | Description |
+|---|---|---|
+| `VITE_CLERK_PUBLISHABLE_KEY` | Yes | Clerk publishable key |
 
 ---
 
 ## Deployment
 
-### Backend → Render
+Pushes to `main` auto-deploy via GitHub Actions. Set these secrets in **Settings → Secrets and variables → Actions**:
 
-1. Create a new **Web Service** on [Render](https://render.com), connect this repo
-2. Set root directory to `backend/`
-3. Runtime: **Docker**
-4. Add environment variables: `DATABASE_URL`, `CLERK_SECRET_KEY`
-5. Deploy
+| Secret | Description |
+|---|---|
+| `CLOUDFLARE_API_TOKEN` | Cloudflare API token with Workers edit permission |
+| `VITE_CLERK_PUBLISHABLE_KEY` | Clerk publishable key (baked into the Vite build) |
+| `RENDER_DEPLOY_HOOK_URL` | Render deploy hook URL from your backend service settings |
 
-### Frontend → Cloudflare Workers
+### Manual deploy
 
-1. Install Wrangler: `npm install -g wrangler`
-2. From the `frontend/` directory:
-
-```bash
-npm run build
-wrangler deploy
+**Frontend:**
+```sh
+cd frontend && npm run build && npx wrangler deploy
 ```
 
-The `worker.js` proxies `/api/*` requests to the Render backend and serves the Vite build from Cloudflare's edge.
+**Backend:** Push to main — Render auto-deploys from the `backend/` Dockerfile.
 
-Set `BACKEND_URL` in `frontend/wrangler.toml`:
-
-```toml
-[vars]
-BACKEND_URL = "https://your-app.onrender.com"
-```
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ---
 
-## Camera Data
+## Roadmap
 
-Camera locations are sourced from [DontGetFlocked](https://www.dontgetflocked.com) and bundled as `backend/cameras.geojson.gz` (31 MB compressed). The file is loaded into memory on startup and queried by bounding box for each route request. Re-download periodically to get updated camera locations:
+- [x] Camera-avoidant A-to-B routing with directional FOV detection
+- [x] Loop generation with iterative avoidance passes
+- [x] Drag-to-reshape route
+- [x] GPS start waypoint
+- [x] GPX export with synthetic timestamps
+- [x] Saved routes (Postgres + localStorage fallback)
+- [x] TypeScript frontend
+- [x] FastAPI + Pydantic backend
+- [x] CI/CD auto-deploy (GitHub Actions → Cloudflare + Render)
+- [ ] Mobile-optimized UI
+- [ ] Shareable route URLs
+- [ ] Scheduled camera data refresh
+- [ ] International camera coverage
 
-```bash
-curl -L \
-  -H "User-Agent: Mozilla/5.0" \
-  -H "Referer: https://www.dontgetflocked.com/" \
-  "https://data.dontgetflocked.com/cameras.geojson.gz" \
-  -o backend/cameras.geojson.gz
-```
+See the [open issues](https://github.com/albogdan7/deflocked-map/issues) for a full list of proposed features and known bugs.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+---
+
+## Contributing
+
+1. Fork the project
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+---
+
+## Contact
+
+Albert Bogdan — [GitHub @albogdan7](https://github.com/albogdan7)
+
+Project: [https://github.com/albogdan7/deflocked-map](https://github.com/albogdan7/deflocked-map)
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+---
+
+## Acknowledgments
+
+- [DeFlock / DontGetFlocked](https://www.dontgetflocked.com) — ALPR camera dataset
+- [Valhalla](https://github.com/valhalla/valhalla) — open-source routing engine
+- [OpenStreetMap](https://www.openstreetmap.org) — map data
+- [Nominatim](https://nominatim.org) — address geocoding
+- [Clerk](https://clerk.com) — authentication
+- [Neon](https://neon.tech) — serverless Postgres
+- [Best-README-Template](https://github.com/othneildrew/Best-README-Template)
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!-- MARKDOWN LINKS & BADGES -->
+[contributors-shield]: https://img.shields.io/github/contributors/albogdan7/deflocked-map.svg?style=for-the-badge
+[contributors-url]: https://github.com/albogdan7/deflocked-map/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/albogdan7/deflocked-map.svg?style=for-the-badge
+[forks-url]: https://github.com/albogdan7/deflocked-map/network/members
+[stars-shield]: https://img.shields.io/github/stars/albogdan7/deflocked-map.svg?style=for-the-badge
+[stars-url]: https://github.com/albogdan7/deflocked-map/stargazers
+[issues-shield]: https://img.shields.io/github/issues/albogdan7/deflocked-map.svg?style=for-the-badge
+[issues-url]: https://github.com/albogdan7/deflocked-map/issues
+[TypeScript-badge]: https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white
+[TypeScript-url]: https://www.typescriptlang.org/
+[React.js]: https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB
+[React-url]: https://reactjs.org/
+[Vite-badge]: https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white
+[Vite-url]: https://vitejs.dev/
+[FastAPI-badge]: https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white
+[FastAPI-url]: https://fastapi.tiangolo.com/
+[Python-badge]: https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white
+[Python-url]: https://www.python.org/
+[Docker-badge]: https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white
+[Docker-url]: https://www.docker.com/
+[Cloudflare-badge]: https://img.shields.io/badge/Cloudflare-F38020?style=for-the-badge&logo=cloudflare&logoColor=white
+[Cloudflare-url]: https://workers.cloudflare.com/
