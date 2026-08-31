@@ -222,6 +222,14 @@ export default function MapView({
     features: [{ type: "Feature" as const, geometry: route.geometry as unknown as GeoJSON.Geometry, properties: route.properties }],
   } : null, [route]);
 
+  const [routeOpacity, setRouteOpacity] = useState(0.9);
+  useEffect(() => {
+    if (!routeData) { setRouteOpacity(0); return; }
+    setRouteOpacity(0);
+    const t = setTimeout(() => setRouteOpacity(0.9), 20);
+    return () => clearTimeout(t);
+  }, [routeData]);
+
   const gpsCircleData = useMemo(() => {
     if (!gpsPos || !gpsAccuracy) return null;
     const [lon, lat] = gpsPos;
@@ -313,7 +321,12 @@ export default function MapView({
           <Source id="route" type="geojson" data={routeData}>
             <Layer id="route-line" type="line"
               layout={{ "line-cap": "round", "line-join": "round" }}
-              paint={{ "line-color": activeColor, "line-width": 5, "line-opacity": 0.9 }}
+              paint={{
+                "line-color": activeColor,
+                "line-width": 5,
+                "line-opacity": routeOpacity,
+                "line-opacity-transition": { duration: 350, delay: 0 },
+              }}
             />
           </Source>
         )}
