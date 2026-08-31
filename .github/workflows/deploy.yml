@@ -26,6 +26,7 @@ jobs:
         working-directory: frontend
         env:
           VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
+          VITE_MAPTILER_API_KEY: ${{ secrets.VITE_MAPTILER_API_KEY }}
 
       - name: Deploy
         uses: cloudflare/wrangler-action@v3

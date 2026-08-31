@@ -684,10 +684,6 @@ input {
   cursor: crosshair !important;
 }
 
-.map-tiles-dark {
-  filter: invert(100%) hue-rotate(180deg) brightness(0.85) contrast(0.9);
-}
-
 .leaflet-container.route-hover  { cursor: grab !important; }
 .leaflet-container.route-drag   { cursor: grabbing !important; }
 .leaflet-container.option-hover { cursor: pointer !important; }
