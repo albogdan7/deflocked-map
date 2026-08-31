@@ -47,7 +47,7 @@
 
 ## About The Project
 
-Automated License Plate Reader (ALPR) cameras are mounted on poles, traffic lights, and buildings across the US — logging the time, location, and plate number of every vehicle and person that passes. DeflockFitness lets you plan routes that actively avoid them.
+Automated License Plate Reader (ALPR) cameras are mounted on poles, traffic lights, and buildings across the US — logging the time, location, and plate number of every vehicle and person that passes. DeflockFitness lets you plan routes that actively avoid them easily.
 
 It uses a dataset of **31,000+ real-world ALPR camera locations** sourced from [DontGetFlocked](https://www.dontgetflocked.com) and the [Valhalla](https://github.com/valhalla/valhalla) open-source routing engine. When a route passes within 75m of a camera's detection cone, it re-routes around it automatically.
 
