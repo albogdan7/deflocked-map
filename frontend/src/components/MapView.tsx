@@ -8,18 +8,7 @@ export const LOOP_COLORS = [
   "#a78bfa", "#22d3ee", "#fbbf24", "#f471b5",
 ];
 
-const MAP_STYLE = {
-  version: 8 as const,
-  sources: {
-    esri: {
-      type: "raster" as const,
-      tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"],
-      tileSize: 256,
-      attribution: "Tiles © Esri",
-    },
-  },
-  layers: [{ id: "esri-streets", type: "raster" as const, source: "esri" }],
-};
+const MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
 
 function buildCone(lat: number, lon: number, bearingDeg: number, fovDeg = 70, rangeM = 75): [number, number][] {
   const R = 6371000;
@@ -253,7 +242,7 @@ export default function MapView({
     <div className="map-container">
       <Map
         ref={mapRef}
-        initialViewState={{ longitude: -98.35, latitude: 39.5, zoom: 5 }}
+        initialViewState={{ longitude: -98.35, latitude: 39.5, zoom: 10 }}
         style={{ width: "100%", height: "100%" }}
         mapStyle={MAP_STYLE}
         cursor={cursor}
