@@ -8,7 +8,7 @@ export const LOOP_COLORS = [
   "#a78bfa", "#22d3ee", "#fbbf24", "#f471b5",
 ];
 
-const MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
+const MAP_STYLE = "https://tiles.openfreemap.org/styles/bright";
 
 function buildCone(lat: number, lon: number, bearingDeg: number, fovDeg = 70, rangeM = 75): [number, number][] {
   const R = 6371000;
@@ -143,6 +143,18 @@ export default function MapView({
     }, 400);
   }, [onBoundsChange, onViewportChange]);
 
+  const handleLoad = useCallback(() => {
+    loadViewportCameras();
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        ({ coords: { latitude: lat, longitude: lon } }) => {
+          mapRef.current?.flyTo({ center: [lon, lat], zoom: 14 });
+        },
+        () => {}
+      );
+    }
+  }, [loadViewportCameras]);
+
   // Interactive layer IDs for click detection
   const interactiveLayerIds = useMemo(() => {
     const ids: string[] = [];
@@ -237,7 +249,7 @@ export default function MapView({
         interactiveLayerIds={interactiveLayerIds}
         onClick={handleClick}
         onMouseMove={handleMouseMove}
-        onLoad={loadViewportCameras}
+        onLoad={handleLoad}
         onMoveEnd={loadViewportCameras}
       >
         {/* Camera FOV cones */}
