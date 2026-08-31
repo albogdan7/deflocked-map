@@ -26,6 +26,12 @@ export default {
       });
     }
 
-    return env.ASSETS.fetch(request);
+    const res = await env.ASSETS.fetch(request);
+    if ((res.headers.get("content-type") || "").includes("text/html")) {
+      const r = new Response(res.body, res);
+      r.headers.set("Cache-Control", "no-store");
+      return r;
+    }
+    return res;
   },
 };
