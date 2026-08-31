@@ -8,7 +8,18 @@ export const LOOP_COLORS = [
   "#a78bfa", "#22d3ee", "#fbbf24", "#f471b5",
 ];
 
-const MAP_STYLE = "https://tiles.openfreemap.org/styles/bright";
+const MAP_STYLE = {
+  version: 8 as const,
+  sources: {
+    esri: {
+      type: "raster" as const,
+      tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"],
+      tileSize: 256,
+      attribution: "Tiles © Esri",
+    },
+  },
+  layers: [{ id: "esri-streets", type: "raster" as const, source: "esri" }],
+};
 
 function buildCone(lat: number, lon: number, bearingDeg: number, fovDeg = 70, rangeM = 75): [number, number][] {
   const R = 6371000;

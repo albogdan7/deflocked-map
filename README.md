@@ -12,7 +12,7 @@
   <p align="center">
     Route planner for walking, running, and cycling that actively avoids ALPR surveillance cameras.
     <br />
-    <a href="https://deflocked-map.albertbogdan2006.workers.dev"><strong>Live App »</strong></a>
+    <strong>Live App — currently under maintenance, back September 2nd</strong>
     <br />
     <br />
     <a href="https://github.com/albogdan7/deflocked-map/issues/new?labels=bug">Report Bug</a>
