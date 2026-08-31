@@ -640,7 +640,7 @@ export default function MapView({
     <div className="map-container">
       <MapContainer center={[39.5, -98.35]} zoom={5} style={{ height: "100%", width: "100%" }} zoomControl={false}>
         <TileLayer
-          url="/tiles/{z}/{x}/{y}.png"
+          url={`https://api.maptiler.com/maps/darkmatter/{z}/{x}/{y}.png?key=${import.meta.env.VITE_MAPTILER_API_KEY}`}
           attribution='&copy; <a href="https://www.maptiler.com/copyright/">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           maxZoom={20}
           tileSize={512}

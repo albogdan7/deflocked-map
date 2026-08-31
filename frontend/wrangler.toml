@@ -9,4 +9,3 @@ binding = "ASSETS"
 
 [vars]
 BACKEND_URL = "https://deflocked-map.onrender.com"
-MAPTILER_API_KEY = "fw87GK82AMjdY0sSG8Jk"
