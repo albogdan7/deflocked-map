@@ -88,22 +88,29 @@ export default function MapView({
   useEffect(() => {
     if (!gpsEnabled) { firstGpsFix.current = false; setGpsPos(null); return; }
     if (!navigator.geolocation) { onGpsError("Geolocation not supported"); return; }
-    const watchId = navigator.geolocation.watchPosition(
-      ({ coords: { latitude: lat, longitude: lon, accuracy } }) => {
-        setGpsPos([lon, lat]);
-        setGpsAccuracy(accuracy);
-        onGpsPosition(lat, lon);
-        if (!firstGpsFix.current) {
-          firstGpsFix.current = true;
-          mapRef.current?.flyTo({ center: [lon, lat], zoom: Math.max(mapRef.current.getZoom() ?? 5, 15) });
-        }
-      },
-      (err) => {
-        const msgs: Record<number, string> = { 1: "Location access denied", 2: "Position unavailable", 3: "Request timed out" };
-        onGpsError(msgs[err.code] ?? "GPS unavailable");
-      },
-      { enableHighAccuracy: false, maximumAge: 30000, timeout: 10000 }
-    );
+
+    const opts = { enableHighAccuracy: false, maximumAge: 30000, timeout: 10000 };
+
+    const onSuccess = ({ coords: { latitude: lat, longitude: lon, accuracy } }: GeolocationPosition) => {
+      setGpsPos([lon, lat]);
+      setGpsAccuracy(accuracy);
+      onGpsPosition(lat, lon);
+      if (!firstGpsFix.current) {
+        firstGpsFix.current = true;
+        mapRef.current?.flyTo({ center: [lon, lat], zoom: Math.max(mapRef.current.getZoom() ?? 5, 15) });
+      }
+    };
+
+    const onError = (err: GeolocationPositionError) => {
+      const msgs: Record<number, string> = { 1: "Location access denied", 2: "Position unavailable", 3: "Request timed out" };
+      console.error(`GPS error — code ${err.code}: ${err.message}`);
+      onGpsError(msgs[err.code] ?? "GPS unavailable");
+    };
+
+    // getCurrentPosition first: warms up the location service on Safari/macOS
+    // so the subsequent watchPosition call starts with a cached fix rather than cold.
+    navigator.geolocation.getCurrentPosition(onSuccess, onError, opts);
+    const watchId = navigator.geolocation.watchPosition(onSuccess, onError, opts);
     return () => navigator.geolocation.clearWatch(watchId);
   }, [gpsEnabled, onGpsPosition, onGpsError]);
 
