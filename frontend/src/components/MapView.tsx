@@ -102,7 +102,7 @@ export default function MapView({
         const msgs: Record<number, string> = { 1: "Location access denied", 2: "Position unavailable", 3: "Request timed out" };
         onGpsError(msgs[err.code] ?? "GPS unavailable");
       },
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+      { enableHighAccuracy: false, maximumAge: 30000, timeout: 10000 }
     );
     return () => navigator.geolocation.clearWatch(watchId);
   }, [gpsEnabled, onGpsPosition, onGpsError]);
