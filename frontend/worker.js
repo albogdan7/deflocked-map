@@ -4,6 +4,14 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
+    if (url.pathname.startsWith("/tiles/")) {
+      const tileTarget = `https://api.maptiler.com/maps/darkmatter${url.pathname.slice(6)}?key=${env.MAPTILER_API_KEY}`;
+      const tileRes = await fetch(tileTarget);
+      const r = new Response(tileRes.body, tileRes);
+      r.headers.set("Cache-Control", "public, max-age=86400");
+      return r;
+    }
+
     if (url.pathname.startsWith("/api/")) {
       const target = env.BACKEND_URL + url.pathname + url.search;
 
