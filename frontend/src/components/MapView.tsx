@@ -145,14 +145,6 @@ export default function MapView({
 
   const handleLoad = useCallback(() => {
     loadViewportCameras();
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        ({ coords: { latitude: lat, longitude: lon } }) => {
-          mapRef.current?.flyTo({ center: [lon, lat], zoom: 14 });
-        },
-        () => {}
-      );
-    }
   }, [loadViewportCameras]);
 
   // Interactive layer IDs for click detection
