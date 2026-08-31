@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { useUser } from "@clerk/clerk-react";
+import { useAuth } from "@clerk/clerk-react";
 import MapView from "./components/MapView";
 import RunPanel from "./components/RunPanel";
 import type { Waypoint, CameraFeature, RouteGeoJson, LoopOption, RouteStats, SavedRoute } from "./types";
@@ -10,8 +10,7 @@ let _nextId = 1;
 const newId = () => _nextId++;
 
 export default function App() {
-  const { isSignedIn, user } = useUser();
-  const userId = user?.id;
+  const { isSignedIn, userId, getToken } = useAuth();
 
   const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
   const [route, setRoute] = useState<RouteGeoJson | null>(null);
@@ -79,8 +78,18 @@ export default function App() {
 
   useEffect(() => {
     if (isSignedIn === undefined) return;
-    if (isSignedIn && userId) {
-      fetch("/api/routes", { headers: { "X-User-Id": userId } })
+    if (!isSignedIn || !userId) {
+      try {
+        setSavedRoutes(JSON.parse(localStorage.getItem(LS_KEY) || "[]"));
+      } catch {
+        setSavedRoutes([]);
+      }
+      return;
+    }
+    (async () => {
+      const token = await getToken();
+      const auth = { Authorization: `Bearer ${token}` };
+      fetch("/api/routes", { headers: auth })
         .then((r) => r.json())
         .then((rows: SavedRoute[]) => {
           setSavedRoutes(rows);
@@ -90,28 +99,22 @@ export default function App() {
             local.map((r) =>
               fetch("/api/routes", {
                 method: "POST",
-                headers: { "Content-Type": "application/json", "X-User-Id": userId },
+                headers: { "Content-Type": "application/json", ...auth },
                 body: JSON.stringify({ name: r.name, waypoints: r.waypoints, mode: r.mode, miles: r.actualMiles }),
               })
             )
           )
             .then(() => {
               localStorage.removeItem(LS_KEY);
-              return fetch("/api/routes", { headers: { "X-User-Id": userId } });
+              return fetch("/api/routes", { headers: auth });
             })
             .then((r) => r.json())
             .then(setSavedRoutes)
             .catch(() => {});
         })
         .catch(() => {});
-    } else {
-      try {
-        setSavedRoutes(JSON.parse(localStorage.getItem(LS_KEY) || "[]"));
-      } catch {
-        setSavedRoutes([]);
-      }
-    }
-  }, [isSignedIn, userId]);
+    })();
+  }, [isSignedIn, userId, getToken]);
 
   // ── Fetch multi-waypoint route ────────────────────────────────────────────────
   const fetchRoute = useCallback(async (wps: Waypoint[], currentMode: string, currentAvoid: boolean) => {
@@ -423,9 +426,10 @@ ${pts}
     };
     if (isSignedIn && userId) {
       try {
+        const token = await getToken();
         const res = await fetch("/api/routes", {
           method: "POST",
-          headers: { "Content-Type": "application/json", "X-User-Id": userId },
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
           body: JSON.stringify(body),
         });
         const { id } = await res.json() as { id: number | string };
@@ -458,9 +462,12 @@ ${pts}
       return updated;
     });
     if (isSignedIn && userId) {
-      try { await fetch(`/api/routes/${id}`, { method: "DELETE", headers: { "X-User-Id": userId } }); } catch {}
+      try {
+        const token = await getToken();
+        await fetch(`/api/routes/${id}`, { method: "DELETE", headers: { "Authorization": `Bearer ${token}` } });
+      } catch {}
     }
-  }, [isSignedIn, userId]);
+  }, [isSignedIn, userId, getToken]);
 
   return (
     <div className="app">

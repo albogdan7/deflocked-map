@@ -3,8 +3,10 @@ import threading
 from contextlib import asynccontextmanager
 from typing import Annotated
 
+import jwt
+from jwt import PyJWKClient
 from dotenv import load_dotenv
-from fastapi import FastAPI, Header, HTTPException, Query
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -13,6 +15,28 @@ import db
 import routing
 
 load_dotenv()
+
+_CLERK_ISSUER = os.getenv("CLERK_ISSUER", "https://mighty-gazelle-40.clerk.accounts.dev")
+_JWKS_URL = os.getenv("CLERK_JWKS_URL", f"{_CLERK_ISSUER}/.well-known/jwks.json")
+_jwks_client = PyJWKClient(_JWKS_URL)
+
+
+def _get_user_id(authorization: Annotated[str, Header()] = "") -> str:
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    token = authorization[7:].strip()
+    try:
+        signing_key = _jwks_client.get_signing_key_from_jwt(token)
+        payload = jwt.decode(
+            token,
+            signing_key.key,
+            algorithms=["RS256"],
+            issuer=_CLERK_ISSUER,
+            options={"require": ["exp", "iat", "sub", "iss"]},
+        )
+        return payload["sub"]
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
 
 
 def _preload():
@@ -35,11 +59,17 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+_CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()] or [
+    "https://deflocked-map.albertbogdan2006.workers.dev",
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:5175",
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_CORS_ORIGINS,
+    allow_methods=["GET", "POST", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 
@@ -184,8 +214,8 @@ def post_loop(body: LoopRequest):
 
 
 @app.get("/api/routes")
-def get_routes(x_user_id: Annotated[str, Header()] = "anonymous"):
-    rows = db.fetch_routes(x_user_id)
+def get_routes(user_id: Annotated[str, Depends(_get_user_id)]):
+    rows = db.fetch_routes(user_id)
     return [{
         "id": r[0],
         "name": r[1],
@@ -197,9 +227,9 @@ def get_routes(x_user_id: Annotated[str, Header()] = "anonymous"):
 
 
 @app.post("/api/routes", status_code=201)
-def save_route(body: SaveRouteRequest, x_user_id: Annotated[str, Header()] = "anonymous"):
+def save_route(body: SaveRouteRequest, user_id: Annotated[str, Depends(_get_user_id)]):
     new_id = db.insert_route(
-        user_id=x_user_id,
+        user_id=user_id,
         name=body.name,
         waypoints=body.waypoints,
         mode=body.mode,
@@ -209,8 +239,8 @@ def save_route(body: SaveRouteRequest, x_user_id: Annotated[str, Header()] = "an
 
 
 @app.delete("/api/routes/{route_id}")
-def delete_route(route_id: int, x_user_id: Annotated[str, Header()] = "anonymous"):
-    db.delete_route(route_id, x_user_id)
+def delete_route(route_id: int, user_id: Annotated[str, Depends(_get_user_id)]):
+    db.delete_route(route_id, user_id)
     return {"ok": True}
 
 
