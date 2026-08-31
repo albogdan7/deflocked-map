@@ -12,8 +12,6 @@
   <p align="center">
     Route planner for walking, running, and cycling that actively avoids ALPR surveillance cameras.
     <br />
-    <strong>Live App — currently under maintenance, back September 2nd</strong>
-    <br />
     <br />
     <a href="https://github.com/albogdan7/deflocked-map/issues/new?labels=bug">Report Bug</a>
     &middot;
@@ -71,6 +69,7 @@ It uses a dataset of **31,000+ real-world ALPR camera locations** sourced from [
 [![TypeScript][TypeScript-badge]][TypeScript-url]
 [![React][React.js]][React-url]
 [![Vite][Vite-badge]][Vite-url]
+[![TailwindCSS][Tailwind-badge]][Tailwind-url]
 [![FastAPI][FastAPI-badge]][FastAPI-url]
 [![Python][Python-badge]][Python-url]
 [![Docker][Docker-badge]][Docker-url]
@@ -78,10 +77,11 @@ It uses a dataset of **31,000+ real-world ALPR camera locations** sourced from [
 
 | Layer | Tech |
 |---|---|
-| Frontend | React 18, TypeScript, Vite, Leaflet, Clerk auth |
+| Frontend | React 18, TypeScript, Vite, Tailwind v4, shadcn/ui, MapLibre GL JS, Clerk auth |
 | Backend | FastAPI, Python 3.12, UV, Pydantic |
 | Routing engine | Valhalla (public API via `valhalla1.openstreetmap.de`) |
-| Camera data | DontGetFlocked — bundled as `cameras.geojson.gz`, loaded into memory at startup |
+| Camera data | DeFlock / OSM — bundled as `cameras.geojson.gz`, loaded into memory at startup |
+| Map tiles | OpenFreeMap (positron style) |
 | Database | Neon Postgres via pg8000 (no libpq dependency) |
 | Auth | Clerk (Google OAuth, modal sign-in) |
 | Frontend hosting | Cloudflare Workers + Assets |
@@ -227,6 +227,7 @@ cd frontend && npm run build && npx wrangler deploy
 - [x] TypeScript frontend
 - [x] FastAPI + Pydantic backend
 - [x] CI/CD auto-deploy (GitHub Actions → Cloudflare + Render)
+- [x] shadcn/ui + Tailwind v4 redesign (calm, professional UI)
 - [ ] Mobile-optimized UI
 - [ ] Shareable route URLs
 - [ ] Scheduled camera data refresh
@@ -287,6 +288,8 @@ Project: [https://github.com/albogdan7/deflocked-map](https://github.com/albogda
 [React-url]: https://reactjs.org/
 [Vite-badge]: https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white
 [Vite-url]: https://vitejs.dev/
+[Tailwind-badge]: https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white
+[Tailwind-url]: https://tailwindcss.com/
 [FastAPI-badge]: https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white
 [FastAPI-url]: https://fastapi.tiangolo.com/
 [Python-badge]: https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white

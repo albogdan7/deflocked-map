@@ -240,11 +240,12 @@ export default function RunPanel({
 
   return (
     <div
-      className="absolute top-3.5 left-3.5 z-[1000] flex flex-col bg-card border border-border rounded-2xl shadow-2xl"
-      style={{ width: "var(--panel-w)", maxHeight: "calc(100vh - 28px)", overflowY: "auto" }}
+      className="absolute top-3.5 left-3.5 z-[1000] bg-card border border-border rounded-xl shadow-2xl overflow-hidden"
+      style={{ width: "var(--panel-w)" }}
     >
+    <div className="flex flex-col w-full" style={{ maxHeight: "calc(100vh - 28px)", overflowY: "auto", overflowX: "hidden" }}>
       {/* Header */}
-      <div className="px-4 pt-4 pb-3.5 flex flex-col gap-2">
+      <div className="px-5 pt-4 pb-3.5 flex flex-col gap-2">
         <div className="flex justify-between items-start gap-2">
           <div>
             <h1 className="text-base font-semibold tracking-tight leading-tight">
@@ -282,7 +283,7 @@ export default function RunPanel({
       <Separator className="bg-border" />
 
       {/* Address search */}
-      <div className="px-4 py-3.5 flex flex-col gap-2">
+      <div className="px-5 py-3.5 flex flex-col gap-2">
         <AddressSearch
           label="From"
           placeholder="Start address or place…"
@@ -317,14 +318,14 @@ export default function RunPanel({
       <Separator className="bg-border" />
 
       {/* Distance + mode + avoid */}
-      <div className="px-4 py-3.5 flex flex-col gap-4">
+      <div className="px-5 py-3.5 flex flex-col gap-4">
         <div className="flex flex-col gap-2.5">
-          <div className="flex items-baseline justify-between">
+          <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground font-medium">Target distance</span>
-            <span className="text-xl font-semibold tabular-nums">
+            <span className="ml-auto text-sm font-semibold tabular-nums text-foreground">
               {targetMiles}
-              <span className="text-sm font-normal text-muted-foreground ml-1">mi</span>
             </span>
+            <span className="text-xs text-muted-foreground">mi</span>
           </div>
           <Slider
             value={[targetMiles]}
@@ -379,7 +380,7 @@ export default function RunPanel({
       <Separator className="bg-border" />
 
       {/* Actions */}
-      <div className="px-4 py-3.5 flex flex-col gap-2.5">
+      <div className="px-5 py-3.5 flex flex-col gap-2.5">
         {waypointCount === 0 && (
           <p className="text-xs text-muted-foreground text-center py-1.5 px-3 rounded-lg bg-muted/40 border border-dashed border-border/60">
             Set a start address or click the map to place a point
@@ -423,7 +424,7 @@ export default function RunPanel({
       {loopOptions && loopOptions.length > 1 && (
         <>
           <Separator className="bg-border" />
-          <div className="px-4 py-3.5 flex flex-col gap-2.5">
+          <div className="px-5 py-3.5 flex flex-col gap-2.5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-muted-foreground">Route Options</span>
               <button
@@ -483,7 +484,7 @@ export default function RunPanel({
       {(loading || error || routeStats) && (
         <>
           <Separator className="bg-border" />
-          <div className="px-4 py-3.5">
+          <div className="px-5 py-3.5">
             {loading && (
               <p className="text-xs text-muted-foreground py-1">Routing…</p>
             )}
@@ -525,7 +526,7 @@ export default function RunPanel({
       {routeStats && !loading && !error && (
         <>
           <Separator className="bg-border" />
-          <div className="px-4 py-3.5 flex flex-col gap-2">
+          <div className="px-5 py-3.5 flex flex-col gap-2">
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -599,7 +600,7 @@ export default function RunPanel({
       {savedRoutes && savedRoutes.length > 0 && (
         <>
           <Separator className="bg-border" />
-          <div className="px-4 py-3.5 flex flex-col gap-2.5">
+          <div className="px-5 py-3.5 flex flex-col gap-2.5">
             <button
               className="flex justify-between items-center w-full"
               onClick={() => setShowSaved((s) => !s)}
@@ -643,7 +644,7 @@ export default function RunPanel({
 
       {/* Attribution */}
       <Separator className="bg-border" />
-      <div className="px-4 py-3 text-[10px] text-muted-foreground/60 leading-relaxed">
+      <div className="px-5 py-3 text-[10px] text-muted-foreground/60 leading-relaxed">
         Camera data:{" "}
         <a href="https://deflock.org" target="_blank" rel="noreferrer" className="text-primary/70 hover:text-primary underline-offset-2 hover:underline">
           DeFlock / OSM
@@ -651,6 +652,7 @@ export default function RunPanel({
         {" · "}Routing: Valhalla
         {" · "}Right-click marker to remove · Drag route to reshape
       </div>
+    </div>
     </div>
   );
 }

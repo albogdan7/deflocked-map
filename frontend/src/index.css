@@ -59,16 +59,10 @@
   --camera-red: #ff4b4b;
   --warning-yellow: #ffc800;
   --gps-blue: #1cb0f6;
-  --panel-w: 320px;
+  --panel-w: 340px;
 }
 
 /* ── Base ────────────────────────────────────────────────────────────── */
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
 html, body, #root {
   height: 100%;
   width: 100%;
