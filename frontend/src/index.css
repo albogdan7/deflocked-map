@@ -675,18 +675,13 @@ input {
 .map-container {
   flex: 1;
   height: 100%;
+  background: #e8e0d8;
 }
 
-.leaflet-container {
+.maplibregl-canvas-container {
   height: 100%;
   width: 100%;
-  background: #131f24;
-  cursor: crosshair !important;
 }
-
-.leaflet-container.route-hover  { cursor: grab !important; }
-.leaflet-container.route-drag   { cursor: grabbing !important; }
-.leaflet-container.option-hover { cursor: pointer !important; }
 
 /* camera dot markers */
 .camera-dot {
