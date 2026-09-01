@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Download, ExternalLink, Bookmark, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import type { RouteStats } from "../../types";
 
@@ -32,11 +31,10 @@ export function ExportSection({
 
   return (
     <div className={cn(
-      "overflow-hidden transition-all duration-300 ease-in-out",
-      (routeStats && !loading && !error) ? "max-h-[260px] opacity-100" : "max-h-0 opacity-0"
+      "overflow-hidden transition-all duration-300 ease-in-out border-t border-border",
+      (routeStats && !loading && !error) ? "max-h-[260px] opacity-100" : "max-h-0 opacity-0 border-t-0"
     )}>
-      <Separator className="bg-border" />
-      <div className="px-5 py-3.5 flex flex-col gap-2">
+      <div className="px-4 py-3 flex flex-col gap-2">
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -99,7 +97,7 @@ export function ExportSection({
           </Button>
         )}
 
-        <p className="text-[10px] text-muted-foreground/60 leading-relaxed">
+        <p className="text-xs text-muted-foreground/50 leading-relaxed">
           GPX imports exact route into Strava, Garmin, MapMyRun. Maps link approximates via 10 waypoints.
         </p>
       </div>

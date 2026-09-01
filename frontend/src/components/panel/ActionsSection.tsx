@@ -13,14 +13,14 @@ export function ActionsSection({
 }: ActionsSectionProps) {
   const busy = loading;
   return (
-    <div className="px-5 py-3.5 flex flex-col gap-2.5">
+    <div className="px-4 py-3 flex flex-col gap-2">
       {waypointCount === 0 && (
-        <p className="text-xs text-muted-foreground text-center py-1.5 px-3 rounded-lg bg-muted/40 border border-dashed border-border/60">
+        <p className="text-xs text-muted-foreground/70 text-center py-1">
           Set a start address or click the map to place a point
         </p>
       )}
       {waypointCount === 1 && (
-        <p className="text-xs text-muted-foreground text-center py-1.5 px-3 rounded-lg bg-muted/40 border border-dashed border-border/60">
+        <p className="text-xs text-muted-foreground/70 text-center py-1">
           Add more waypoints or generate a loop from here
         </p>
       )}

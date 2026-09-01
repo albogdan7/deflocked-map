@@ -1,4 +1,3 @@
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import type { RouteStats } from "../../types";
 
@@ -24,17 +23,16 @@ export function StatsSection({ loading, error, routeStats, targetMiles, mode }: 
 
   return (
     <div className={cn(
-      "overflow-hidden transition-all duration-300 ease-in-out",
-      (loading || error || routeStats) ? "max-h-[200px] opacity-100" : "max-h-0 opacity-0"
+      "overflow-hidden transition-all duration-300 ease-in-out border-t border-border",
+      (loading || error || routeStats) ? "max-h-[200px] opacity-100" : "max-h-0 opacity-0 border-t-0"
     )}>
-      <Separator className="bg-border" />
-      <div className="px-5 py-3.5">
+      <div className="px-4 py-3">
         {loading && <p className="text-xs text-muted-foreground py-1">Routing…</p>}
         {error && !loading && <p className="text-xs text-destructive py-1">{error}</p>}
         {routeStats && !loading && !error && (
           <div className="flex flex-col gap-2.5">
             <div className="flex items-baseline gap-1.5">
-              <span className="text-2xl font-semibold tabular-nums">{actualMiles.toFixed(2)}</span>
+              <span className="text-xl font-semibold tabular-nums">{actualMiles.toFixed(2)}</span>
               <span className="text-sm text-muted-foreground">mi</span>
               {estTime(actualMiles, mode) && (
                 <span className="text-sm text-muted-foreground ml-auto">{estTime(actualMiles, mode)}</span>

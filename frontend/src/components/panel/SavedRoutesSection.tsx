@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import type { SavedRoute } from "../../types";
 
 interface SavedRoutesSectionProps {
@@ -17,8 +16,7 @@ export function SavedRoutesSection({ savedRoutes, onLoadSavedRoute, onDeleteSave
 
   return (
     <>
-      <Separator className="bg-border" />
-      <div className="px-5 py-3.5 flex flex-col gap-2.5">
+      <div className="px-4 py-3 flex flex-col gap-2.5 border-t border-border">
         <button
           className="flex justify-between items-center w-full"
           onClick={() => setShowSaved((s) => !s)}

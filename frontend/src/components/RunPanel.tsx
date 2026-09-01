@@ -60,49 +60,41 @@ export default function RunPanel({
 }: RunPanelProps) {
   return (
     <div
-      className="absolute top-3.5 left-3.5 z-[1000] bg-card border border-border rounded-xl shadow-2xl overflow-hidden"
-      style={{ width: "var(--panel-w)" }}
+      className="absolute top-3.5 left-3.5 z-[1000] bg-card border border-border rounded-xl shadow-2xl flex flex-col"
+      style={{ width: "var(--panel-w)", maxHeight: "calc(100vh - 28px)" }}
     >
-      <div className="flex flex-col w-full" style={{ maxHeight: "calc(100vh - 28px)", overflowY: "auto", overflowX: "hidden" }}>
-
-        {/* Header */}
-        <div className="px-5 pt-4 pb-3.5 flex flex-col gap-2">
-          <div className="flex justify-between items-start gap-2">
-            <div>
-              <h1 className="text-base font-semibold tracking-tight leading-tight">
-                <span className="text-primary">Deflock</span>Fitness
-              </h1>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Avoid ALPR cameras on your route</p>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
-              <SignedOut>
-                <SignInButton mode="modal">
-                  <Button variant="outline" size="sm" className="h-7 px-2.5 text-[11px] border-border text-muted-foreground hover:text-foreground">
-                    Sign in
-                  </Button>
-                </SignInButton>
-              </SignedOut>
-              <SignedIn>
-                <UserButton />
-              </SignedIn>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                onClick={onCollapse}
-                title="Minimize panel"
-              >
-                <ChevronLeft className="h-4 w-4" />
+      {/* Header — fixed, never scrolls */}
+      <div className="px-4 py-3 flex items-center justify-between shrink-0">
+        <h1 className="text-sm font-semibold tracking-tight">
+          <span className="text-primary">Deflock</span>Fitness
+        </h1>
+        <div className="flex items-center gap-1.5">
+          <SignedOut>
+            <SignInButton mode="modal">
+              <Button variant="outline" size="sm" className="h-7 px-2.5 text-xs border-border text-muted-foreground hover:text-foreground">
+                Sign in
               </Button>
-            </div>
-          </div>
-          {!isSignedIn && savedRoutes.length === 0 && (
-            <p className="text-[11px] text-muted-foreground/70 text-center">Sign in to sync routes across devices</p>
-          )}
+            </SignInButton>
+          </SignedOut>
+          <SignedIn>
+            <UserButton />
+          </SignedIn>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+            onClick={onCollapse}
+            title="Minimize panel"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
         </div>
+      </div>
 
-        <Separator className="bg-border" />
+      <Separator className="bg-border shrink-0" />
 
+      {/* Scrollable content */}
+      <div className="flex flex-col overflow-y-auto overflow-x-hidden min-h-0">
         <AddressSection
           onSetStart={onSetStart}
           onSetEnd={onSetEnd}
@@ -162,15 +154,12 @@ export default function RunPanel({
           onDeleteSavedRoute={onDeleteSavedRoute}
         />
 
-        {/* Attribution */}
-        <Separator className="bg-border" />
-        <div className="px-5 py-3 text-[10px] text-muted-foreground/60 leading-relaxed">
+        <div className="px-4 py-3 text-xs text-muted-foreground/50 leading-relaxed border-t border-border">
           Camera data:{" "}
-          <a href="https://deflock.org" target="_blank" rel="noreferrer" className="text-primary/70 hover:text-primary underline-offset-2 hover:underline">
+          <a href="https://deflock.org" target="_blank" rel="noreferrer" className="text-primary/60 hover:text-primary underline-offset-2 hover:underline">
             DeFlock / OSM
           </a>
-          {" · "}Routing: Valhalla
-          {" · "}Right-click marker to remove · Drag route to reshape
+          {" · "}Routing: Valhalla · Right-click marker to remove · Drag route to reshape
         </div>
       </div>
     </div>

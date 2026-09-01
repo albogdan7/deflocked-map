@@ -33,7 +33,7 @@ export function AddressSection({
   }
 
   return (
-    <div className="px-5 py-3.5 flex flex-col gap-2">
+    <div className="px-4 py-3 flex flex-col gap-2">
       <AddressSearch
         label="From"
         placeholder="Start address or place…"

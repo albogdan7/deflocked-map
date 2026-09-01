@@ -12,7 +12,7 @@ export function OptionsSection({
   targetMiles, setTargetMiles, mode, setMode,
 }: OptionsSectionProps) {
   return (
-    <div className="px-5 py-3.5 flex flex-col gap-4">
+    <div className="px-4 py-3 flex flex-col gap-3">
       <div className="flex flex-col gap-2.5">
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground font-medium">Target distance</span>

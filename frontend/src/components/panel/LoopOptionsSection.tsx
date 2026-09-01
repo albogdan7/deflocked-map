@@ -1,5 +1,4 @@
 import { LOOP_COLORS } from "../../constants";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import type { LoopOption } from "../../types";
 
@@ -16,11 +15,10 @@ export function LoopOptionsSection({
 }: LoopOptionsSectionProps) {
   return (
     <div className={cn(
-      "overflow-hidden transition-all duration-300 ease-in-out",
-      loopOptions.length > 1 ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
+      "overflow-hidden transition-all duration-300 ease-in-out border-t border-border",
+      loopOptions.length > 1 ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0 border-t-0"
     )}>
-      <Separator className="bg-border" />
-      <div className="px-5 py-3.5 flex flex-col gap-2.5">
+      <div className="px-4 py-3 flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium text-muted-foreground">Route Options</span>
           <button
