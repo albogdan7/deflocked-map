@@ -14,8 +14,7 @@ export interface FetchLoopResult {
 
 export async function fetchRoute(
   waypoints: Waypoint[],
-  mode: string,
-  avoidCameras: boolean
+  mode: string
 ): Promise<FetchRouteResult> {
   const res = await fetch("/api/route", {
     method: "POST",
@@ -23,7 +22,7 @@ export async function fetchRoute(
     body: JSON.stringify({
       waypoints: waypoints.map((wp) => [wp.lat, wp.lon]),
       mode,
-      avoid_cameras: avoidCameras,
+      avoid_cameras: true,
     }),
   });
   if (!res.ok) {
@@ -47,8 +46,7 @@ export async function fetchRoute(
 export async function fetchLoop(
   start: Waypoint,
   miles: number,
-  mode: string,
-  avoidCameras: boolean
+  mode: string
 ): Promise<FetchLoopResult> {
   const res = await fetch("/api/loop", {
     method: "POST",
@@ -57,7 +55,7 @@ export async function fetchLoop(
       start: [start.lat, start.lon],
       miles,
       mode,
-      avoid_cameras: avoidCameras,
+      avoid_cameras: true,
     }),
   });
   if (!res.ok) {

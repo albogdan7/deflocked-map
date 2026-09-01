@@ -14,8 +14,6 @@ import type { LoopOption, RouteStats, SavedRoute } from "../types";
 interface RunPanelProps {
   mode: string;
   setMode: (mode: string) => void;
-  avoidCameras: boolean;
-  setAvoidCameras: (avoid: boolean) => void;
   targetMiles: number;
   setTargetMiles: (miles: number) => void;
   waypointCount: number;
@@ -47,7 +45,6 @@ interface RunPanelProps {
 
 export default function RunPanel({
   mode, setMode,
-  avoidCameras, setAvoidCameras,
   targetMiles, setTargetMiles,
   waypointCount,
   loopOptions, activeLoopIdx,
@@ -122,8 +119,6 @@ export default function RunPanel({
           setTargetMiles={setTargetMiles}
           mode={mode}
           setMode={setMode}
-          avoidCameras={avoidCameras}
-          setAvoidCameras={setAvoidCameras}
         />
 
         <Separator className="bg-border" />

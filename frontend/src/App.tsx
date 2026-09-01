@@ -14,7 +14,6 @@ export default function App() {
   const [panelOpen, setPanelOpen] = useState(true);
   const [soloRoute, setSoloRoute] = useState(false);
   const [mode, setMode] = useState("walk");
-  const [avoidCameras, setAvoidCameras] = useState(true);
   const [targetMiles, setTargetMiles] = useState(3);
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [mapBounds, setMapBounds] = useState<string | null>(null);
@@ -28,7 +27,7 @@ export default function App() {
     route, camerasOnRoute, loading, error, routeStats,
     loopOptions, activeLoopIdx,
     generateLoop, selectLoop, exportGPX, googleMapsUrl,
-  } = useRouteBuilder({ mode, avoidCameras });
+  } = useRouteBuilder({ mode });
 
   const {
     gpsEnabled, gpsError, gpsStartAddress,
@@ -163,8 +162,6 @@ export default function App() {
         <RunPanel
           mode={mode}
           setMode={setMode}
-          avoidCameras={avoidCameras}
-          setAvoidCameras={setAvoidCameras}
           targetMiles={targetMiles}
           setTargetMiles={setTargetMiles}
           waypointCount={waypoints.length}

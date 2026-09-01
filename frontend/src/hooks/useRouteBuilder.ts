@@ -5,10 +5,9 @@ import type { Waypoint, CameraFeature, RouteGeoJson, LoopOption, RouteStats } fr
 
 interface UseRouteBuilderOptions {
   mode: string;
-  avoidCameras: boolean;
 }
 
-export function useRouteBuilder({ mode, avoidCameras }: UseRouteBuilderOptions) {
+export function useRouteBuilder({ mode }: UseRouteBuilderOptions) {
   // Waypoint state
   const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
   const [outBackActive, setOutBackActive] = useState(false);
@@ -43,7 +42,7 @@ export function useRouteBuilder({ mode, avoidCameras }: UseRouteBuilderOptions) 
       setLoading(true);
       setError(null);
       try {
-        const result = await apiFetchRoute(waypoints, mode, avoidCameras);
+        const result = await apiFetchRoute(waypoints, mode);
         if (cancelled) return;
         setRoute(result.route);
         setCamerasOnRoute(result.camerasOnRoute);
@@ -63,7 +62,7 @@ export function useRouteBuilder({ mode, avoidCameras }: UseRouteBuilderOptions) 
       }
     }, 500);
     return () => { cancelled = true; clearTimeout(tid); };
-  }, [waypoints, mode, avoidCameras, loopOptions]);
+  }, [waypoints, mode, loopOptions]);
 
   // ── Waypoint handlers ─────────────────────────────────────────────────────────
 
@@ -175,7 +174,7 @@ export function useRouteBuilder({ mode, avoidCameras }: UseRouteBuilderOptions) 
     setLoading(true);
     setError(null);
     try {
-      const result = await apiFetchLoop(start, targetMiles, mode, avoidCameras);
+      const result = await apiFetchLoop(start, targetMiles, mode);
       const first = result.options[0];
       if (!first) { setError("No loop route found. Try a different distance."); return false; }
       setLoopOptions(result.options);
@@ -195,7 +194,7 @@ export function useRouteBuilder({ mode, avoidCameras }: UseRouteBuilderOptions) 
     } finally {
       setLoading(false);
     }
-  }, [mode, avoidCameras]);
+  }, [mode]);
 
   const selectLoop = useCallback((idx: number) => {
     const opt = loopOptions[idx];

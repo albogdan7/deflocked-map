@@ -1,5 +1,4 @@
 import { Slider } from "@/components/ui/slider";
-import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 
 interface OptionsSectionProps {
@@ -7,12 +6,10 @@ interface OptionsSectionProps {
   setTargetMiles: (miles: number) => void;
   mode: string;
   setMode: (mode: string) => void;
-  avoidCameras: boolean;
-  setAvoidCameras: (avoid: boolean) => void;
 }
 
 export function OptionsSection({
-  targetMiles, setTargetMiles, mode, setMode, avoidCameras, setAvoidCameras,
+  targetMiles, setTargetMiles, mode, setMode,
 }: OptionsSectionProps) {
   return (
     <div className="px-5 py-3.5 flex flex-col gap-4">
@@ -48,18 +45,6 @@ export function OptionsSection({
             {m === "walk" ? "Walk / Run" : "Bike"}
           </button>
         ))}
-      </div>
-
-      <div className="flex items-center gap-2.5">
-        <Checkbox
-          id="avoid-cameras"
-          checked={avoidCameras}
-          onCheckedChange={(c) => setAvoidCameras(c === true)}
-          className="border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-        />
-        <label htmlFor="avoid-cameras" className="text-sm text-foreground cursor-pointer select-none">
-          Avoid ALPR cameras
-        </label>
       </div>
     </div>
   );
