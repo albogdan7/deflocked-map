@@ -34,7 +34,7 @@ export function LoopOptionsSection({
             {soloRoute ? "Show all" : "Solo view"}
           </button>
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5 max-h-[260px] overflow-y-auto">
           {loopOptions.map((opt, idx) => (
             <button
               key={idx}
