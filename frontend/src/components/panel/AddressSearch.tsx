@@ -73,7 +73,7 @@ export function AddressSearch({
   useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="relative flex flex-col gap-1">
       <div className="flex items-center gap-2">
         <span className="text-[10px] font-semibold text-muted-foreground w-7 shrink-0 text-right">{label}</span>
         <Input
@@ -90,7 +90,7 @@ export function AddressSearch({
         />
       </div>
       {suggestions.length > 0 && (
-        <div className="ml-9 bg-popover border border-border rounded-lg overflow-hidden shadow-lg">
+        <div className="absolute top-full left-9 right-0 z-50 mt-1 bg-popover border border-border rounded-lg overflow-hidden shadow-lg">
           {suggestions.map((s) => {
             const { primary, secondary } = formatLabel(s);
             return (
