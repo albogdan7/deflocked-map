@@ -39,7 +39,9 @@ export async function nominatim(
   const res = await fetch(`https://nominatim.openstreetmap.org/search?${p}`, {
     headers: { "Accept-Language": "en" },
   });
-  return res.json() as Promise<NominatimResult[]>;
+  if (!res.ok) throw new Error(`Geocoding failed: ${res.status}`);
+  const data: unknown = await res.json();
+  return Array.isArray(data) ? (data as NominatimResult[]) : [];
 }
 
 export async function reverseGeocode(lat: number, lon: number): Promise<string> {

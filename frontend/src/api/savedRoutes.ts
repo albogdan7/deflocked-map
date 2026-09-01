@@ -22,13 +22,16 @@ export function clearLocalStorage(): void {
 
 async function authHeaders(getToken: () => Promise<string | null>): Promise<Record<string, string>> {
   const token = await getToken();
+  if (!token) throw new Error("Not authenticated");
   return { Authorization: `Bearer ${token}` };
 }
 
 export async function fetchRemoteRoutes(getToken: () => Promise<string | null>): Promise<SavedRoute[]> {
   const auth = await authHeaders(getToken);
   const res = await fetch("/api/routes", { headers: auth });
-  return res.json() as Promise<SavedRoute[]>;
+  if (!res.ok) throw new Error(`Failed to load routes: ${res.status}`);
+  const data: unknown = await res.json();
+  return Array.isArray(data) ? (data as SavedRoute[]) : [];
 }
 
 export async function migrateLocalToRemote(
@@ -37,18 +40,22 @@ export async function migrateLocalToRemote(
   const local = loadFromLocalStorage();
   if (!local.length) return [];
   const auth = await authHeaders(getToken);
-  await Promise.all(
+  // Only clear localStorage after every upload succeeds — preserve local data on any failure.
+  const results = await Promise.all(
     local.map((r) =>
       fetch("/api/routes", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...auth },
         body: JSON.stringify({ name: r.name, waypoints: r.waypoints, mode: r.mode, miles: r.actualMiles }),
-      })
+      }).then((res) => res.ok, () => false)
     )
   );
+  if (!results.every(Boolean)) throw new Error("Migration failed; local routes preserved");
   clearLocalStorage();
   const res = await fetch("/api/routes", { headers: auth });
-  return res.json() as Promise<SavedRoute[]>;
+  if (!res.ok) throw new Error(`Failed to reload routes: ${res.status}`);
+  const data: unknown = await res.json();
+  return Array.isArray(data) ? (data as SavedRoute[]) : [];
 }
 
 export async function saveRemoteRoute(
@@ -69,5 +76,6 @@ export async function deleteRemoteRoute(
   getToken: () => Promise<string | null>
 ): Promise<void> {
   const auth = await authHeaders(getToken);
-  await fetch(`/api/routes/${id}`, { method: "DELETE", headers: auth });
+  const res = await fetch(`/api/routes/${id}`, { method: "DELETE", headers: auth });
+  if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
 }

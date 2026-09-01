@@ -41,6 +41,7 @@ export function AddressSearch({
   }
 
   function pick(s: NominatimResult) {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
     const { primary, secondary } = formatLabel(s);
     const text = secondary ? `${primary}, ${secondary}` : primary;
     setValue(text);
@@ -75,6 +76,7 @@ export function AddressSearch({
         <Input
           className="h-9 bg-input border-border text-sm font-normal placeholder:text-muted-foreground/60 focus-visible:ring-1 focus-visible:ring-primary/50"
           type="text"
+          aria-label={label}
           placeholder={placeholder}
           value={value}
           onChange={handleChange}

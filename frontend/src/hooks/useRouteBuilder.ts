@@ -38,11 +38,13 @@ export function useRouteBuilder({ mode, avoidCameras }: UseRouteBuilderOptions) 
       setCamerasOnRoute([]);
       return;
     }
+    let cancelled = false;
     const tid = setTimeout(async () => {
       setLoading(true);
       setError(null);
       try {
         const result = await apiFetchRoute(waypoints, mode, avoidCameras);
+        if (cancelled) return;
         setRoute(result.route);
         setCamerasOnRoute(result.camerasOnRoute);
         setRouteStats({
@@ -51,15 +53,16 @@ export function useRouteBuilder({ mode, avoidCameras }: UseRouteBuilderOptions) 
           camerasOnRoute: result.camerasOnRoute.length,
         });
       } catch (e) {
+        if (cancelled) return;
         setError(e instanceof Error ? e.message : String(e));
         setRoute(null);
         setRouteStats(null);
         setCamerasOnRoute([]);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }, 500);
-    return () => clearTimeout(tid);
+    return () => { cancelled = true; clearTimeout(tid); };
   }, [waypoints, mode, avoidCameras, loopOptions]);
 
   // ── Waypoint handlers ─────────────────────────────────────────────────────────
@@ -173,15 +176,17 @@ export function useRouteBuilder({ mode, avoidCameras }: UseRouteBuilderOptions) 
     setError(null);
     try {
       const result = await apiFetchLoop(start, targetMiles, mode, avoidCameras);
+      const first = result.options[0];
+      if (!first) { setError("No loop route found. Try a different distance."); return false; }
       setLoopOptions(result.options);
       setActiveLoopIdx(0);
-      setRoute(result.options[0].route);
+      setRoute(first.route);
       setWaypoints([{ id: nextId(), lat: start.lat, lon: start.lon }]);
-      setCamerasOnRoute(result.options[0].camerasOnRoute);
+      setCamerasOnRoute(first.camerasOnRoute);
       setRouteStats({
-        length: result.options[0].actualMiles,
+        length: first.actualMiles,
         camerasNearby: result.camerasNearby,
-        camerasOnRoute: result.options[0].camerasOnRoute.length,
+        camerasOnRoute: first.camerasOnRoute.length,
       });
       return true;
     } catch (e) {

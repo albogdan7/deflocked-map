@@ -73,12 +73,13 @@ export function useSavedRoutes(
   }, [isSignedIn, userId, getToken]);
 
   const remove = useCallback(async (id: number | string) => {
+    const isRemote = Boolean(isSignedIn && userId);
     setSavedRoutes((prev) => {
       const updated = prev.filter((r) => r.id !== id);
-      if (!isSignedIn) saveToLocalStorage(updated);
+      if (!isRemote) saveToLocalStorage(updated);
       return updated;
     });
-    if (isSignedIn && userId) {
+    if (isRemote) {
       try {
         await deleteRemoteRoute(id, getToken);
       } catch {}

@@ -23,16 +23,17 @@ export function useGps({ userSetStartRef, onGpsStart }: UseGpsOptions) {
     }
     if (!gpsPosition || gpsStartSetRef.current) return;
     gpsStartSetRef.current = true;
+    let cancelled = false;
     const { lat, lon } = gpsPosition;
     onGpsStart(lat, lon);
     reverseGeocode(lat, lon)
       .then((addr) => {
-        // userSetStartRef.current is read lazily — no need in effect deps
-        if (!userSetStartRef.current) setGpsStartAddress(addr);
+        if (!cancelled && !userSetStartRef.current) setGpsStartAddress(addr);
       })
       .catch(() => {
-        if (!userSetStartRef.current) setGpsStartAddress("Current Location");
+        if (!cancelled && !userSetStartRef.current) setGpsStartAddress("Current Location");
       });
+    return () => { cancelled = true; };
   }, [gpsPosition, gpsEnabled, onGpsStart]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleGpsPosition = useCallback((lat: number, lon: number) => {

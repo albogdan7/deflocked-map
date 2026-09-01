@@ -22,7 +22,10 @@ export function AddressSection({
     if (gpsStartAddress) setStartText(gpsStartAddress);
   }, [gpsStartAddress]);
 
+  const canSwap = !disabled && (!!startText || !!endText);
+
   function handleSwap() {
+    if (!canSwap) return;
     const tmp = startText;
     setStartText(endText);
     setEndText(tmp);
@@ -46,6 +49,7 @@ export function AddressSection({
           size="icon"
           className="h-7 w-7 text-muted-foreground hover:text-foreground"
           onClick={handleSwap}
+          disabled={!canSwap}
           title="Swap start and destination"
         >
           <ArrowUpDown className="h-3.5 w-3.5" />

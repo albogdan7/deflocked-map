@@ -27,8 +27,10 @@ export async function fetchRoute(
     }),
   });
   if (!res.ok) {
-    const d = await res.json() as { error?: string };
-    throw new Error(d.error || "Route failed");
+    const text = await res.text().catch(() => "");
+    let message = "";
+    try { message = (JSON.parse(text) as { error?: string }).error ?? ""; } catch { /* non-JSON body */ }
+    throw new Error(message || `Route failed (${res.status})`);
   }
   const data = await res.json() as {
     route: RouteGeoJson;
@@ -59,8 +61,10 @@ export async function fetchLoop(
     }),
   });
   if (!res.ok) {
-    const d = await res.json() as { error?: string };
-    throw new Error(d.error || "Loop failed");
+    const text = await res.text().catch(() => "");
+    let message = "";
+    try { message = (JSON.parse(text) as { error?: string }).error ?? ""; } catch { /* non-JSON body */ }
+    throw new Error(message || `Loop failed (${res.status})`);
   }
   const data = await res.json() as {
     options?: Array<{
