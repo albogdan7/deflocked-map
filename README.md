@@ -10,13 +10,15 @@
   <h3 align="center">DeflockFitness</h3>
 
   <p align="center">
-    Route planner for walking, running, and cycling that actively avoids ALPR surveillance cameras.
-    <br />
-    <br />
-    <a href="https://github.com/albogdan7/deflocked-map/issues/new?labels=bug">Report Bug</a>
-    &middot;
-    <a href="https://github.com/albogdan7/deflocked-map/issues/new?labels=enhancement">Request Feature</a>
-  </p>
+  Route planner for walking, running, and cycling that actively avoids ALPR surveillance cameras.
+  <br />
+  <br />
+  <a href="https://deflocked-map.albertbogdan2006.workers.dev">View Project</a>
+  &middot;
+  <a href="https://github.com/albogdan7/deflocked-map/issues/new?labels=bug">Report Bug</a>
+  &middot;
+  <a href="https://github.com/albogdan7/deflocked-map/issues/new?labels=enhancement">Request Feature</a>
+</p>
 </div>
 
 <details>
