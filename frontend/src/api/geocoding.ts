@@ -20,9 +20,23 @@ export function formatLabel(s: NominatimResult): { primary: string; secondary: s
   const a = s.address || {};
   const street = [a.house_number, a.road].filter(Boolean).join(" ");
   const locality = a.city || a.town || a.village || a.suburb || "";
-  const primary = street || a.name || s.display_name.split(",")[0];
-  const secondary = [locality, a.state, a.postcode].filter(Boolean).join(", ");
+  // Named places (shops, parks, etc.) go by their name, not their street address.
+  const primary = a.name || street || s.display_name.split(",")[0];
+  const secondary = [a.name ? street : null, locality, a.state, a.postcode].filter(Boolean).join(", ");
   return { primary, secondary };
+}
+
+function viewboxCenter(viewbox: string): { lat: number; lon: number } | null {
+  const parts = viewbox.split(",").map(Number);
+  if (parts.length !== 4 || parts.some(isNaN)) return null;
+  const [lonMin, latMin, lonMax, latMax] = parts;
+  return { lat: (latMin + latMax) / 2, lon: (lonMin + lonMax) / 2 };
+}
+
+function distSq(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const dlat = lat1 - lat2;
+  const dlon = (lon1 - lon2) * Math.cos((lat1 * Math.PI) / 180);
+  return dlat * dlat + dlon * dlon;
 }
 
 export async function nominatim(
@@ -41,7 +55,16 @@ export async function nominatim(
   });
   if (!res.ok) throw new Error(`Geocoding failed: ${res.status}`);
   const data: unknown = await res.json();
-  return Array.isArray(data) ? (data as NominatimResult[]) : [];
+  const results = Array.isArray(data) ? (data as NominatimResult[]) : [];
+  // Sort by proximity to map center so the nearest match ranks first.
+  const center = viewbox ? viewboxCenter(viewbox) : null;
+  if (center) {
+    results.sort((a, b) =>
+      distSq(parseFloat(a.lat), parseFloat(a.lon), center.lat, center.lon) -
+      distSq(parseFloat(b.lat), parseFloat(b.lon), center.lat, center.lon)
+    );
+  }
+  return results;
 }
 
 export async function reverseGeocode(lat: number, lon: number): Promise<string> {
