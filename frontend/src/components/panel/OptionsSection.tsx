@@ -16,7 +16,7 @@ export function OptionsSection({
       <div className="flex flex-col gap-2.5">
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground font-medium">Target distance</span>
-          <span className="ml-auto text-sm font-semibold tabular-nums text-foreground">{targetMiles}</span>
+          <span className="ml-auto text-sm font-semibold tabular-nums text-foreground w-8 text-right">{targetMiles}</span>
           <span className="text-xs text-muted-foreground">mi</span>
         </div>
         <Slider
