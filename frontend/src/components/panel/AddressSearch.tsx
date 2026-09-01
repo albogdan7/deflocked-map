@@ -18,6 +18,8 @@ export function AddressSearch({
   const [value, setValue] = useState("");
   const [suggestions, setSuggestions] = useState<NominatimResult[]>([]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Monotonic counter — each fetch increments it; only the latest seq wins.
+  const fetchSeqRef = useRef(0);
 
   useEffect(() => {
     if (syncValue != null) { setValue(syncValue); setSuggestions([]); }
@@ -29,13 +31,14 @@ export function AddressSearch({
     onValueChange?.(q);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (q.trim().length < 2) { setSuggestions([]); return; }
+    const seq = ++fetchSeqRef.current;
     debounceRef.current = setTimeout(async () => {
       try {
         let data = await nominatim(q, viewbox, true);
         if (!data.length) data = await nominatim(q, viewbox, false);
-        setSuggestions(data);
+        if (seq === fetchSeqRef.current) setSuggestions(data);
       } catch {
-        setSuggestions([]);
+        if (seq === fetchSeqRef.current) setSuggestions([]);
       }
     }, 350);
   }
@@ -93,8 +96,10 @@ export function AddressSearch({
             return (
               <button
                 key={s.place_id}
+                type="button"
                 className="block w-full text-left px-3 py-2.5 hover:bg-accent transition-colors border-b border-border last:border-0"
-                onMouseDown={(e) => { e.preventDefault(); pick(s); }}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => pick(s)}
               >
                 <span className="block text-sm font-medium text-foreground leading-snug">{primary}</span>
                 {secondary && <span className="block text-xs text-muted-foreground mt-0.5">{secondary}</span>}

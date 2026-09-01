@@ -4,7 +4,8 @@ export const LS_KEY = "deflockFitness_savedRoutes";
 
 export function loadFromLocalStorage(): SavedRoute[] {
   try {
-    return JSON.parse(localStorage.getItem(LS_KEY) || "[]");
+    const parsed: unknown = JSON.parse(localStorage.getItem(LS_KEY) || "[]");
+    return Array.isArray(parsed) ? (parsed as SavedRoute[]) : [];
   } catch {
     return [];
   }
@@ -40,18 +41,27 @@ export async function migrateLocalToRemote(
   const local = loadFromLocalStorage();
   if (!local.length) return [];
   const auth = await authHeaders(getToken);
-  // Only clear localStorage after every upload succeeds — preserve local data on any failure.
-  const results = await Promise.all(
-    local.map((r) =>
+  // Upload one at a time, tracking which indices succeeded so only those are
+  // removed from localStorage. Failed routes are preserved for a future retry.
+  const succeeded: number[] = [];
+  await Promise.all(
+    local.map((r, i) =>
       fetch("/api/routes", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...auth },
         body: JSON.stringify({ name: r.name, waypoints: r.waypoints, mode: r.mode, miles: r.actualMiles }),
-      }).then((res) => res.ok, () => false)
+      })
+        .then((res) => { if (res.ok) succeeded.push(i); }, () => {})
     )
   );
-  if (!results.every(Boolean)) throw new Error("Migration failed; local routes preserved");
-  clearLocalStorage();
+  const successSet = new Set(succeeded);
+  const remaining = local.filter((_, i) => !successSet.has(i));
+  if (remaining.length) {
+    saveToLocalStorage(remaining);
+  } else {
+    clearLocalStorage();
+  }
+  if (!succeeded.length) throw new Error("Migration failed; local routes preserved");
   const res = await fetch("/api/routes", { headers: auth });
   if (!res.ok) throw new Error(`Failed to reload routes: ${res.status}`);
   const data: unknown = await res.json();
@@ -68,6 +78,7 @@ export async function saveRemoteRoute(
     headers: { "Content-Type": "application/json", ...auth },
     body: JSON.stringify(body),
   });
+  if (!res.ok) throw new Error(`Save failed: ${res.status}`);
   return res.json() as Promise<{ id: number | string }>;
 }
 
