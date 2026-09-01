@@ -2,11 +2,9 @@ import { useEffect, useRef, useCallback, useMemo, useState } from "react";
 import Map, { Source, Layer, Marker, type MapRef, type MapLayerMouseEvent } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { Waypoint, CameraFeature, RouteGeoJson, LoopOption } from "../types";
+import { LOOP_COLORS } from "../constants";
 
-export const LOOP_COLORS = [
-  "#5b8bff", "#ff9f43", "#26de81", "#ff6b6b",
-  "#a78bfa", "#22d3ee", "#fbbf24", "#f471b5",
-];
+export { LOOP_COLORS };
 
 const MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
 
@@ -152,6 +150,17 @@ export default function MapView({
 
   const handleLoad = useCallback(() => {
     loadViewportCameras();
+    // Silently fly to the user's location on first load (no GPS tracking state change).
+    // Guard: only fly if no waypoints are placed yet so we don't yank a mid-session view.
+    navigator.geolocation?.getCurrentPosition(
+      ({ coords: { latitude: lat, longitude: lon } }) => {
+        if (waypointsRef.current.length === 0) {
+          mapRef.current?.flyTo({ center: [lon, lat], zoom: 14 });
+        }
+      },
+      () => {},
+      { enableHighAccuracy: false, maximumAge: 60000, timeout: 8000 }
+    );
   }, [loadViewportCameras]);
 
   // Interactive layer IDs for click detection
