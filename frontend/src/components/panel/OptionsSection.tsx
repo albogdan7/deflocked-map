@@ -29,16 +29,16 @@ export function OptionsSection({
         />
       </div>
 
-      <div className="flex bg-input rounded-lg p-1 gap-1">
+      <div className="flex bg-black/20 rounded-[9px] p-[3px] gap-[3px] border border-white/[0.05]">
         {(["walk", "bike"] as const).map((m) => (
           <button
             key={m}
             type="button"
             className={cn(
-              "flex-1 py-1.5 text-xs font-medium rounded-md transition-colors",
+              "flex-1 py-1.5 text-xs font-medium rounded-[6px] transition-all duration-200",
               mode === m
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
+                ? "bg-card text-foreground shadow-[0_1px_4px_rgba(0,0,0,0.4)] font-semibold"
+                : "text-muted-foreground hover:text-foreground/80"
             )}
             onClick={() => setMode(m)}
           >

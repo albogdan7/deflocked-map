@@ -25,26 +25,30 @@ export function ActionsSection({
         </p>
       )}
 
-      <Button className="w-full font-medium" onClick={onGenerateLoop} disabled={waypointCount < 1 || busy}>
-        {busy ? "Routing…" : "Generate Loop"}
+      <Button
+        className="w-full font-semibold tracking-[-0.01em] active:scale-[0.98] transition-all duration-200 rounded-[9px] h-9"
+        onClick={onGenerateLoop}
+        disabled={waypointCount < 1 || busy}
+      >
+        {busy ? "Routing…" : "Generate loop"}
       </Button>
 
       <div className="flex gap-2">
         <Button
           variant="outline"
-          className="flex-1 text-xs border-border text-muted-foreground hover:text-foreground"
+          className="flex-1 text-xs font-medium border-white/[0.08] bg-transparent text-muted-foreground hover:text-foreground hover:border-white/[0.14] hover:bg-white/[0.04] active:scale-[0.97] transition-all duration-200 rounded-[9px]"
           onClick={onCloseLoop}
           disabled={waypointCount < 2 || busy}
         >
-          Close Loop
+          Close loop
         </Button>
         <Button
           variant="outline"
-          className="flex-1 text-xs border-border text-muted-foreground hover:border-destructive hover:text-destructive"
+          className="flex-1 text-xs font-medium border-white/[0.08] bg-transparent text-muted-foreground hover:border-destructive/40 hover:text-destructive hover:bg-destructive/[0.06] active:scale-[0.97] transition-all duration-200 rounded-[9px]"
           onClick={onClear}
           disabled={waypointCount === 0 || busy}
         >
-          Clear All
+          Clear all
         </Button>
       </div>
     </div>

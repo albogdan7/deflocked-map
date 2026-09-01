@@ -59,19 +59,40 @@ export default function RunPanel({
   isSignedIn,
 }: RunPanelProps) {
   return (
+    /* Double-bezel shell: outer gradient ring → inner card */
     <div
-      className="absolute top-3.5 left-3.5 z-[1000] bg-card border border-border rounded-xl shadow-2xl flex flex-col"
-      style={{ width: "var(--panel-w)", maxHeight: "calc(100vh - 28px)" }}
+      className="absolute top-3.5 left-3.5 z-[1000] p-[1.5px] rounded-[15px]"
+      style={{
+        background: "linear-gradient(145deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.03) 100%)",
+        boxShadow: "0 0 0 1px rgba(255,255,255,0.055)",
+      }}
     >
+      <div
+        className="bg-card rounded-[13.5px] flex flex-col overflow-hidden"
+        style={{
+          width: "var(--panel-w)",
+          maxHeight: "calc(100dvh - 28px)",
+          boxShadow: "0 20px 50px rgba(0,0,0,0.65), 0 4px 14px rgba(0,0,0,0.35)",
+        }}
+      >
       {/* Header — fixed, never scrolls */}
-      <div className="px-4 py-3 flex items-center justify-between shrink-0">
-        <h1 className="text-sm font-semibold tracking-tight">
-          <span className="text-primary">Deflock</span>Fitness
-        </h1>
+      <div className="px-4 py-3.5 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="w-[18px] h-[18px] rounded-[5px] flex items-center justify-center shrink-0 bg-primary/[0.14]">
+            <span className="text-primary font-bold" style={{ fontSize: 9 }}>D</span>
+          </div>
+          <h1 className="text-[13px] font-semibold tracking-[-0.015em]">
+            <span className="text-primary">Deflock</span>
+            <span className="text-foreground/75"> Fitness</span>
+          </h1>
+        </div>
         <div className="flex items-center gap-1.5">
           <SignedOut>
             <SignInButton mode="modal">
-              <Button variant="outline" size="sm" className="h-7 px-2.5 text-xs border-border text-muted-foreground hover:text-foreground">
+              <Button
+                size="sm"
+                className="h-7 px-3 text-[11px] font-semibold tracking-[0.005em] rounded-[7px] bg-foreground text-background hover:bg-foreground/90 active:scale-[0.97] transition-all duration-200 border-0"
+              >
                 Sign in
               </Button>
             </SignInButton>
@@ -82,7 +103,7 @@ export default function RunPanel({
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-white/[0.06] active:scale-[0.95] transition-all duration-200 rounded-[7px]"
             onClick={onCollapse}
             title="Minimize panel"
           >
@@ -154,13 +175,14 @@ export default function RunPanel({
           onDeleteSavedRoute={onDeleteSavedRoute}
         />
 
-        <div className="px-4 py-3 text-xs text-muted-foreground/50 leading-relaxed border-t border-border">
+        <div className="px-4 py-3 text-xs text-muted-foreground/40 leading-relaxed border-t border-border/50">
           Camera data:{" "}
-          <a href="https://deflock.org" target="_blank" rel="noreferrer" className="text-primary/60 hover:text-primary underline-offset-2 hover:underline">
+          <a href="https://deflock.org" target="_blank" rel="noreferrer" className="text-primary/50 hover:text-primary/80 underline-offset-2 hover:underline transition-colors duration-150">
             DeFlock / OSM
           </a>
           {" · "}Routing: Valhalla · Right-click marker to remove · Drag route to reshape
         </div>
+      </div>
       </div>
     </div>
   );
