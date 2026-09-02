@@ -194,7 +194,7 @@ def post_route(body: RouteRequest):
 
 @app.post("/api/loop")
 def post_loop(body: LoopRequest):
-    start_lat, start_lon = body.start.lat, body.start.lon
+    start_lat, start_lon = body.start[0], body.start[1]
     target_miles = body.miles
 
     radius_deg = (target_miles / (2 * 3.14159 * 69.0)) * 1.5
