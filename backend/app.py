@@ -8,7 +8,7 @@ from jwt import PyJWKClient
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 import cameras as cam_store
 import db
@@ -81,16 +81,39 @@ class WaypointItem(BaseModel):
 
 
 class RouteRequest(BaseModel):
-    waypoints: list[WaypointItem] = Field(..., min_length=2, max_length=50)
+    waypoints: list[list[float]] = Field(..., min_length=2, max_length=50)
     mode: str = Field(default="walk", pattern="^(walk|bike)$")
     avoid_cameras: bool = True
+
+    @field_validator("waypoints")
+    @classmethod
+    def validate_waypoints(cls, v: list[list[float]]) -> list[list[float]]:
+        for pair in v:
+            if len(pair) != 2:
+                raise ValueError("each waypoint must be [lat, lon]")
+            lat, lon = pair
+            if not -90 <= lat <= 90:
+                raise ValueError(f"lat {lat} out of range")
+            if not -180 <= lon <= 180:
+                raise ValueError(f"lon {lon} out of range")
+        return v
 
 
 class LoopRequest(BaseModel):
-    start: WaypointItem
+    start: list[float] = Field(..., min_length=2, max_length=2)
     miles: float = Field(default=3.0, ge=0.1, le=50.0)
     mode: str = Field(default="walk", pattern="^(walk|bike)$")
     avoid_cameras: bool = True
+
+    @field_validator("start")
+    @classmethod
+    def validate_start(cls, v: list[float]) -> list[float]:
+        lat, lon = v[0], v[1]
+        if not -90 <= lat <= 90:
+            raise ValueError(f"lat {lat} out of range")
+        if not -180 <= lon <= 180:
+            raise ValueError(f"lon {lon} out of range")
+        return v
 
 
 class SaveRouteRequest(BaseModel):
