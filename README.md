@@ -7,7 +7,7 @@
 
 <br />
 
-> **⚠️ Known Issue:** Route generation is currently unavailable due to an outage at `valhalla1.openstreetmap.de` (the external routing service). This is not a bug in the code — routes will work again once the OSM Valhalla service recovers.
+> **⚠️ Known Issue:** Route generation is currently unavailable due to an outage at `valhalla1.openstreetmap.de` (the external routing service). This is not a bug in the code, routes will work again once the OSM Valhalla service recovers.
 
 <div align="center">
   <h3 align="center">DeflockFitness</h3>
