@@ -8,7 +8,7 @@ from jwt import PyJWKClient
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 import cameras as cam_store
 import db
@@ -75,24 +75,29 @@ app.add_middleware(
 
 # ── Pydantic models ───────────────────────────────────────────────────────────
 
+class WaypointItem(BaseModel):
+    lat: float = Field(..., ge=-90, le=90)
+    lon: float = Field(..., ge=-180, le=180)
+
+
 class RouteRequest(BaseModel):
-    waypoints: list[list[float]]
-    mode: str = "walk"
+    waypoints: list[list[float]] = Field(..., min_length=2, max_length=50)
+    mode: str = Field(default="walk", pattern="^(walk|bike)$")
     avoid_cameras: bool = True
 
 
 class LoopRequest(BaseModel):
-    start: list[float]
-    miles: float = 3.0
-    mode: str = "walk"
+    start: list[float] = Field(..., min_length=2, max_length=2)
+    miles: float = Field(default=3.0, ge=0.1, le=50.0)
+    mode: str = Field(default="walk", pattern="^(walk|bike)$")
     avoid_cameras: bool = True
 
 
 class SaveRouteRequest(BaseModel):
-    name: str = "Untitled Route"
-    waypoints: list[dict]
-    mode: str = "walk"
-    miles: float = 0.0
+    name: str = Field(default="Untitled Route", max_length=128)
+    waypoints: list[WaypointItem] = Field(..., min_length=1, max_length=100)
+    mode: str = Field(default="walk", pattern="^(walk|bike)$")
+    miles: float = Field(default=0.0, ge=0.0, le=10_000.0)
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -130,7 +135,8 @@ def post_route(body: RouteRequest):
     try:
         first_pass = routing.get_route(body.waypoints, body.mode, [])
     except Exception as e:
-        raise HTTPException(status_code=502, detail=str(e))
+        print(f"[route] routing error: {e}")
+        raise HTTPException(status_code=502, detail="Routing service unavailable")
 
     trip = first_pass.get("trip", {})
     if not trip.get("legs"):
@@ -186,7 +192,8 @@ def post_loop(body: LoopRequest):
             nearby if body.avoid_cameras else [],
         )
     except Exception as e:
-        raise HTTPException(status_code=502, detail=str(e))
+        print(f"[loop] routing error: {e}")
+        raise HTTPException(status_code=502, detail="Routing service unavailable")
 
     if not all_results:
         raise HTTPException(status_code=502, detail="loop generation failed")
@@ -231,7 +238,7 @@ def save_route(body: SaveRouteRequest, user_id: Annotated[str, Depends(_get_user
     new_id = db.insert_route(
         user_id=user_id,
         name=body.name,
-        waypoints=body.waypoints,
+        waypoints=[wp.model_dump() for wp in body.waypoints],
         mode=body.mode,
         miles=body.miles,
     )
