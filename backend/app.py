@@ -81,13 +81,13 @@ class WaypointItem(BaseModel):
 
 
 class RouteRequest(BaseModel):
-    waypoints: list[list[float]] = Field(..., min_length=2, max_length=50)
+    waypoints: list[WaypointItem] = Field(..., min_length=2, max_length=50)
     mode: str = Field(default="walk", pattern="^(walk|bike)$")
     avoid_cameras: bool = True
 
 
 class LoopRequest(BaseModel):
-    start: list[float] = Field(..., min_length=2, max_length=2)
+    start: WaypointItem
     miles: float = Field(default=3.0, ge=0.1, le=50.0)
     mode: str = Field(default="walk", pattern="^(walk|bike)$")
     avoid_cameras: bool = True
@@ -118,22 +118,20 @@ def get_cameras(
     return {"type": "FeatureCollection", "features": features}
 
 
-def _bbox_from_waypoints(waypoints: list[list[float]], pad: float = 0.015):
-    lats = [wp[0] for wp in waypoints]
-    lons = [wp[1] for wp in waypoints]
+def _bbox_from_waypoints(waypoints: list[WaypointItem], pad: float = 0.015):
+    lats = [wp.lat for wp in waypoints]
+    lons = [wp.lon for wp in waypoints]
     return (min(lons) - pad, min(lats) - pad, max(lons) + pad, max(lats) + pad)
 
 
 @app.post("/api/route")
 def post_route(body: RouteRequest):
-    if len(body.waypoints) < 2:
-        raise HTTPException(status_code=400, detail="waypoints array with ≥ 2 points required")
-
+    wps = [[wp.lat, wp.lon] for wp in body.waypoints]
     min_lon, min_lat, max_lon, max_lat = _bbox_from_waypoints(body.waypoints)
     nearby = cam_store.get_in_bbox(min_lon, min_lat, max_lon, max_lat)
 
     try:
-        first_pass = routing.get_route(body.waypoints, body.mode, [])
+        first_pass = routing.get_route(wps, body.mode, [])
     except Exception as e:
         print(f"[route] routing error: {e}")
         raise HTTPException(status_code=502, detail="Routing service unavailable")
@@ -148,7 +146,7 @@ def post_route(body: RouteRequest):
         on_route = routing.cameras_near_route(all_coords, nearby)
         if on_route:
             try:
-                second_pass = routing.get_route(body.waypoints, body.mode, on_route)
+                second_pass = routing.get_route(wps, body.mode, on_route)
                 if second_pass is None:
                     second_pass = first_pass
             except Exception:
@@ -174,11 +172,8 @@ def post_route(body: RouteRequest):
 
 @app.post("/api/loop")
 def post_loop(body: LoopRequest):
-    if len(body.start) < 2:
-        raise HTTPException(status_code=400, detail="start [lat, lon] required")
-
-    start_lat, start_lon = float(body.start[0]), float(body.start[1])
-    target_miles = float(body.miles)
+    start_lat, start_lon = body.start.lat, body.start.lon
+    target_miles = body.miles
 
     radius_deg = (target_miles / (2 * 3.14159 * 69.0)) * 1.5
     nearby = cam_store.get_in_bbox(
