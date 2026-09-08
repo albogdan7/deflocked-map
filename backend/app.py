@@ -101,13 +101,16 @@ class RouteRequest(BaseModel):
 
 class LoopRequest(BaseModel):
     start: list[float] = Field(..., min_length=2, max_length=2)
+    end: list[float] | None = Field(default=None, min_length=2, max_length=2)
     miles: float = Field(default=3.0, ge=0.1, le=50.0)
     mode: str = Field(default="walk", pattern="^(walk|bike)$")
     avoid_cameras: bool = True
 
-    @field_validator("start")
+    @field_validator("start", "end")
     @classmethod
-    def validate_start(cls, v: list[float]) -> list[float]:
+    def validate_point(cls, v: list[float] | None) -> list[float] | None:
+        if v is None:
+            return v
         lat, lon = v[0], v[1]
         if not -90 <= lat <= 90:
             raise ValueError(f"lat {lat} out of range")
@@ -198,16 +201,26 @@ def post_loop(body: LoopRequest):
     target_miles = body.miles
 
     radius_deg = (target_miles / (2 * 3.14159 * 69.0)) * 1.5
+    # Camera bbox must cover both endpoints (plus padding) for an A→B route.
+    lats = [start_lat] + ([body.end[0]] if body.end else [])
+    lons = [start_lon] + ([body.end[1]] if body.end else [])
     nearby = cam_store.get_in_bbox(
-        start_lon - radius_deg, start_lat - radius_deg,
-        start_lon + radius_deg, start_lat + radius_deg,
+        min(lons) - radius_deg, min(lats) - radius_deg,
+        max(lons) + radius_deg, max(lats) + radius_deg,
     )
 
     try:
-        all_results = routing.generate_loop(
-            start_lat, start_lon, target_miles, body.mode,
-            nearby if body.avoid_cameras else [],
-        )
+        if body.end is not None:
+            all_results = routing.generate_route(
+                start_lat, start_lon, body.end[0], body.end[1],
+                target_miles, body.mode,
+                nearby if body.avoid_cameras else [],
+            )
+        else:
+            all_results = routing.generate_loop(
+                start_lat, start_lon, target_miles, body.mode,
+                nearby if body.avoid_cameras else [],
+            )
     except Exception as e:
         print(f"[loop] routing error: {e}")
         raise HTTPException(status_code=502, detail="Routing service unavailable")

@@ -303,3 +303,175 @@ def generate_loop(start_lat, start_lon, target_miles, mode, nearby_cameras):
 
     results.sort(key=lambda x: (x[3], abs(x[2] - target_miles)))
     return results
+
+
+# ── Point-to-point distance-padded routing (A → B) ───────────────────────────
+# Unlike generate_loop (which returns to its start), this connects a distinct
+# start and end while padding the path out toward a target distance by bowing
+# intermediate via-points perpendicular to the straight A→B line.
+
+def _miles_between(lat1, lon1, lat2, lon2) -> float:
+    return _haversine(lat1, lon1, lat2, lon2) / 1609.344
+
+
+def _detour_waypoints(start_lat, start_lon, end_lat, end_lon,
+                      amplitude_miles, side, n_points, alternate):
+    """
+    Build [start, via…, end] with interior via-points bowed perpendicular to
+    the A→B line. Bow follows a sine envelope (0 at both ends, max in middle).
+    `side` is +1/-1; when `alternate`, successive vias flip sides (S-curve).
+    """
+    if amplitude_miles <= 0 or n_points <= 0:
+        return [[start_lat, start_lon], [end_lat, end_lon]]
+
+    mid_lat = (start_lat + end_lat) / 2.0
+    cos_mid = math.cos(math.radians(mid_lat)) or 1e-6
+
+    # Unit vector along A→B in equal-distance space (lon scaled by cos(lat)).
+    dlat = end_lat - start_lat
+    dlon_scaled = (end_lon - start_lon) * cos_mid
+    seg = math.hypot(dlat, dlon_scaled) or 1e-9
+    ua_lat, ua_lon = dlat / seg, dlon_scaled / seg
+    # Perpendicular (rotate 90°) in the same scaled space.
+    p_lat, p_lon = -ua_lon, ua_lat
+
+    pts = [[start_lat, start_lon]]
+    for i in range(1, n_points + 1):
+        f = i / (n_points + 1)
+        base_lat = start_lat + dlat * f
+        base_lon = start_lon + (end_lon - start_lon) * f
+        s = side * (-1 if (alternate and i % 2 == 0) else 1)
+        off = amplitude_miles * math.sin(math.pi * f) * s  # miles
+        d_lat = (off / 69.0) * p_lat
+        d_lon = (off / 69.0) * p_lon / cos_mid
+        pts.append([base_lat + d_lat, base_lon + d_lon])
+    pts.append([end_lat, end_lon])
+    return pts
+
+
+def _route_one_variant(start_lat, start_lon, end_lat, end_lon,
+                       target_miles, mode, nearby_cameras, side, n_points, alternate):
+    """A→B analogue of _loop_one_bearing for a single detour shape."""
+    MAX_AVOIDANCE_PASSES = 5
+    direct_road = _miles_between(start_lat, start_lon, end_lat, end_lon) * 1.3
+
+    def route_with_scale(exclusions):
+        # Initial guess: bow just enough to add the missing length.
+        amp = max(0.0, target_miles - direct_road) * 0.6
+        best = (None, None, 0.0)
+        for _ in range(5):
+            wps = _detour_waypoints(start_lat, start_lon, end_lat, end_lon,
+                                    amp, side, n_points, alternate)
+            result = get_route(wps, mode, exclusions)
+            if result is None:
+                return (None, wps, 0.0)
+            actual = result.get("trip", {}).get("summary", {}).get("length", 0.0)
+            best = (result, wps, actual)
+            if actual <= 0 or amp <= 0:
+                break
+            if abs(target_miles / actual - 1.0) < 0.08:
+                break
+            # Scale by the *extra* length ratio — total length is nonlinear in amp.
+            extra_actual = max(0.05, actual - direct_road)
+            extra_target = max(0.0, target_miles - direct_road)
+            amp *= (extra_target / extra_actual)
+            amp = max(0.0, min(amp, target_miles))  # clamp
+        return best
+
+    if not nearby_cameras:
+        r, w, a = route_with_scale([])
+        return r, w, a, 0
+
+    excluded_keys: set = set()
+    excluded_cams: list = []
+    result = wps = None
+    actual = 0.0
+    remaining = len(nearby_cameras)
+
+    for _ in range(MAX_AVOIDANCE_PASSES):
+        result, wps, actual = route_with_scale(excluded_cams)
+        if not result or actual <= 0:
+            if excluded_cams:
+                result, wps, actual = route_with_scale([])
+                if result and actual > 0:
+                    coords = decode_trip_coords(result.get("trip", {}))
+                    remaining = len(cameras_near_route(coords, nearby_cameras))
+            break
+
+        coords = decode_trip_coords(result.get("trip", {}))
+        on_route = cameras_near_route(coords, nearby_cameras)
+        remaining = len(on_route)
+        if not on_route:
+            break
+
+        new_cams = [c for c in on_route if _cam_key(c) not in excluded_keys]
+        if not new_cams:
+            break
+        for cam in new_cams:
+            excluded_keys.add(_cam_key(cam))
+        excluded_cams = [c for c in nearby_cameras if _cam_key(c) in excluded_keys]
+
+    return result, wps, actual, remaining
+
+
+def _direct_route(start_lat, start_lon, end_lat, end_lon, mode, nearby_cameras):
+    """Plain A→B route (camera-avoiding if possible). Demo-safe fallback."""
+    wps = [[start_lat, start_lon], [end_lat, end_lon]]
+    try:
+        result = get_route(wps, mode, [])
+    except Exception:
+        return None
+    if not result:
+        return None
+    actual = result.get("trip", {}).get("summary", {}).get("length", 0.0)
+    coords = decode_trip_coords(result.get("trip", {}))
+    on_route = cameras_near_route(coords, nearby_cameras) if nearby_cameras else []
+    if on_route:
+        try:
+            avoided = get_route(wps, mode, on_route)
+        except Exception:
+            avoided = None
+        if avoided:
+            a2 = avoided.get("trip", {}).get("summary", {}).get("length", 0.0)
+            if a2 > 0:
+                result, actual = avoided, a2
+                coords = decode_trip_coords(result.get("trip", {}))
+                on_route = cameras_near_route(coords, nearby_cameras)
+    return result, wps, actual, len(on_route)
+
+
+def generate_route(start_lat, start_lon, end_lat, end_lon, target_miles, mode, nearby_cameras):
+    """
+    Generate up to 5 A→B options padded toward target_miles, each with
+    iterative camera avoidance. Always includes a direct route as a safety
+    net so the caller can never end up with nothing. Sorted by camera count
+    asc, then distance-to-target asc.
+    """
+    variants = [
+        (1, 1, False),   # single bow, one side
+        (-1, 1, False),  # single bow, other side
+        (1, 2, True),    # S-curve
+        (-1, 2, True),   # S-curve, mirrored
+        (1, 3, False),   # wider arc
+    ]
+    results = []
+    for side, n_points, alternate in variants:
+        r, w, a, c = _route_one_variant(
+            start_lat, start_lon, end_lat, end_lon,
+            target_miles, mode, nearby_cameras, side, n_points, alternate
+        )
+        if r and a > 0:
+            results.append((r, w, a, c))
+
+    direct = _direct_route(start_lat, start_lon, end_lat, end_lon, mode, nearby_cameras)
+    if direct:
+        results.append(direct)
+
+    # De-dup near-identical distances (keep the first / better-ranked one).
+    results.sort(key=lambda x: (x[3], abs(x[2] - target_miles)))
+    deduped = []
+    for r in results:
+        if any(abs(r[2] - k[2]) < 0.05 and r[3] == k[3] for k in deduped):
+            continue
+        deduped.append(r)
+    return deduped

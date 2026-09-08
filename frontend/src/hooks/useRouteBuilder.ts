@@ -170,17 +170,22 @@ export function useRouteBuilder({ mode }: UseRouteBuilderOptions) {
 
   // ── Route handlers ────────────────────────────────────────────────────────────
 
-  const generateLoop = useCallback(async (start: Waypoint, targetMiles: number): Promise<boolean> => {
+  const generateLoop = useCallback(async (start: Waypoint, targetMiles: number, end?: Waypoint | null): Promise<boolean> => {
     setLoading(true);
     setError(null);
     try {
-      const result = await apiFetchLoop(start, targetMiles, mode);
+      const result = await apiFetchLoop(start, targetMiles, mode, end);
       const first = result.options[0];
-      if (!first) { setError("No loop route found. Try a different distance."); return false; }
+      if (!first) { setError("No route found. Try a different distance."); return false; }
       setLoopOptions(result.options);
       setActiveLoopIdx(0);
       setRoute(first.route);
-      setWaypoints([{ id: nextId(), lat: start.lat, lon: start.lon }]);
+      // Keep both anchors when routing A→B; a closed loop only needs the start.
+      setWaypoints(
+        end
+          ? [{ id: nextId(), lat: start.lat, lon: start.lon }, { id: nextId(), lat: end.lat, lon: end.lon }]
+          : [{ id: nextId(), lat: start.lat, lon: start.lon }]
+      );
       setCamerasOnRoute(first.camerasOnRoute);
       setRouteStats({
         length: first.actualMiles,

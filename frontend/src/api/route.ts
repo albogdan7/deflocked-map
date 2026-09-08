@@ -46,13 +46,15 @@ export async function fetchRoute(
 export async function fetchLoop(
   start: Waypoint,
   miles: number,
-  mode: string
+  mode: string,
+  end?: Waypoint | null
 ): Promise<FetchLoopResult> {
   const res = await fetch("/api/loop", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       start: [start.lat, start.lon],
+      ...(end ? { end: [end.lat, end.lon] } : {}),
       miles,
       mode,
       avoid_cameras: true,

@@ -30,7 +30,7 @@ export function ActionsSection({
         onClick={onGenerateLoop}
         disabled={waypointCount < 1 || busy}
       >
-        {busy ? "Routing…" : "Generate loop"}
+        {busy ? "Routing…" : waypointCount >= 2 ? "Generate route" : "Generate loop"}
       </Button>
 
       <div className="flex gap-2">

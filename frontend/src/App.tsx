@@ -48,7 +48,10 @@ export default function App() {
   const handleGenerateLoop = useCallback(async () => {
     if (waypoints.length < 1) return;
     const start = waypoints[0];
-    const ok = await generateLoop(start, targetMiles);
+    // With a distinct destination, route A→B padded to the target distance;
+    // otherwise generate a closed loop from the start.
+    const end = waypoints.length >= 2 ? waypoints[waypoints.length - 1] : null;
+    const ok = await generateLoop(start, targetMiles, end);
     if (ok) setSoloRoute(false);
   }, [waypoints, targetMiles, generateLoop]);
 

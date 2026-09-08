@@ -115,7 +115,7 @@ export default function RunPanel({
       <Separator className="bg-border shrink-0" />
 
       {/* Scrollable content */}
-      <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden min-h-0">
+      <div className="panel-scroll flex flex-col flex-1 overflow-y-auto overflow-x-hidden min-h-0">
         <AddressSection
           onSetStart={onSetStart}
           onSetEnd={onSetEnd}

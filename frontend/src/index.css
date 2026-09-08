@@ -198,6 +198,32 @@ html, body, #root {
   100% { transform: scale(3.5); opacity: 0; }
 }
 
+/* ── Panel scrollbar ─────────────────────────────────────────────────── */
+.panel-scroll {
+  scrollbar-width: thin;                       /* Firefox */
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+}
+
+.panel-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.panel-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.panel-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.panel-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+  background-clip: content-box;
+}
+
 /* ── Panel expand button (when panel is collapsed) ───────────────────── */
 .panel-expand-btn {
   position: absolute;
