@@ -47,7 +47,7 @@ export default function App() {
 
   const handleGenerateLoop = useCallback(async () => {
     if (waypoints.length < 1) return;
-    const start = waypoints[waypoints.length - 1];
+    const start = waypoints[0];
     const ok = await generateLoop(start, targetMiles);
     if (ok) setSoloRoute(false);
   }, [waypoints, targetMiles, generateLoop]);
