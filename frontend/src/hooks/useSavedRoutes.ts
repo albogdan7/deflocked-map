@@ -5,15 +5,18 @@ import {
   fetchRemoteRoutes,
   migrateLocalToRemote,
   saveRemoteRoute,
+  updateRemoteRoute,
   deleteRemoteRoute,
 } from "../api/savedRoutes";
-import type { SavedRoute } from "../types";
+import type { RouteGeoJson, RouteStats, SavedRoute } from "../types";
 
 interface SaveBody {
   name: string;
   waypoints: Array<{ lat: number; lon: number }>;
   mode: string;
   miles: number;
+  geometry?: RouteGeoJson | null;
+  stats?: RouteStats | null;
 }
 
 export function useSavedRoutes(
@@ -22,6 +25,7 @@ export function useSavedRoutes(
   getToken: () => Promise<string | null>
 ) {
   const [savedRoutes, setSavedRoutes] = useState<SavedRoute[]>([]);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (isSignedIn === undefined) return;
@@ -41,9 +45,10 @@ export function useSavedRoutes(
       .catch(() => {});
   }, [isSignedIn, userId, getToken]);
 
-  const save = useCallback(async (body: SaveBody) => {
-    if (isSignedIn && userId) {
-      try {
+  const save = useCallback(async (body: SaveBody): Promise<SavedRoute> => {
+    setBusy(true);
+    try {
+      if (isSignedIn && userId) {
         const { id } = await saveRemoteRoute(body, getToken);
         const entry: SavedRoute = {
           id,
@@ -52,10 +57,12 @@ export function useSavedRoutes(
           mode: body.mode,
           actualMiles: body.miles,
           date: new Date().toLocaleDateString(),
+          route: body.geometry ?? null,
+          stats: body.stats ?? null,
         };
         setSavedRoutes((prev) => [entry, ...prev].slice(0, 50));
-      } catch {}
-    } else {
+        return entry;
+      }
       const entry: SavedRoute = {
         id: Date.now(),
         name: body.name,
@@ -63,12 +70,45 @@ export function useSavedRoutes(
         mode: body.mode,
         actualMiles: body.miles,
         date: new Date().toLocaleDateString(),
+        route: body.geometry ?? null,
+        stats: body.stats ?? null,
       };
       setSavedRoutes((prev) => {
         const updated = [entry, ...prev].slice(0, 50);
         saveToLocalStorage(updated);
         return updated;
       });
+      return entry;
+    } finally {
+      setBusy(false);
+    }
+  }, [isSignedIn, userId, getToken]);
+
+  const update = useCallback(async (id: number | string, body: SaveBody): Promise<void> => {
+    setBusy(true);
+    try {
+      if (isSignedIn && userId) {
+        await updateRemoteRoute(id, body, getToken);
+      }
+      setSavedRoutes((prev) => {
+        const updated = prev.map((r) =>
+          r.id === id
+            ? {
+                ...r,
+                name: body.name,
+                waypoints: body.waypoints,
+                mode: body.mode,
+                actualMiles: body.miles,
+                route: body.geometry ?? null,
+                stats: body.stats ?? null,
+              }
+            : r
+        );
+        if (!(isSignedIn && userId)) saveToLocalStorage(updated);
+        return updated;
+      });
+    } finally {
+      setBusy(false);
     }
   }, [isSignedIn, userId, getToken]);
 
@@ -86,5 +126,5 @@ export function useSavedRoutes(
     }
   }, [isSignedIn, userId, getToken]);
 
-  return { savedRoutes, save, remove };
+  return { savedRoutes, busy, save, update, remove };
 }

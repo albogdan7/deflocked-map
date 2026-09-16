@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { UserButton, SignInButton, SignedIn, SignedOut } from "@clerk/clerk-react";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 import { AddressSection } from "./panel/AddressSection";
 import { OptionsSection } from "./panel/OptionsSection";
 import { ActionsSection } from "./panel/ActionsSection";
@@ -9,6 +11,7 @@ import { LoopOptionsSection } from "./panel/LoopOptionsSection";
 import { StatsSection } from "./panel/StatsSection";
 import { ExportSection } from "./panel/ExportSection";
 import { SavedRoutesSection } from "./panel/SavedRoutesSection";
+import type { GeoPoint } from "../api/geocoding";
 import type { LoopOption, RouteStats, SavedRoute } from "../types";
 
 interface RunPanelProps {
@@ -17,6 +20,7 @@ interface RunPanelProps {
   targetMiles: number;
   setTargetMiles: (miles: number) => void;
   waypointCount: number;
+  startPoint: GeoPoint | null;
   loopOptions: LoopOption[];
   activeLoopIdx: number;
   loading: boolean;
@@ -35,29 +39,39 @@ interface RunPanelProps {
   onSaveRoute: (name: string) => void;
   onLoadSavedRoute: (route: SavedRoute) => void;
   onDeleteSavedRoute: (id: number | string) => void;
+  loadedRouteName: string | null;
+  onUpdateRoute: () => void;
   onCollapse: () => void;
+  busy?: boolean;
   soloRoute: boolean;
   setSoloRoute: React.Dispatch<React.SetStateAction<boolean>>;
   gpsStartAddress: string | null;
+  loadedFromAddress: string | null;
+  loadedToAddress: string | null;
   onSwap: () => void;
-  isSignedIn: boolean;
 }
 
 export default function RunPanel({
   mode, setMode,
   targetMiles, setTargetMiles,
-  waypointCount,
+  waypointCount, startPoint,
   loopOptions, activeLoopIdx,
   loading, error, routeStats,
   mapBounds,
   onSetStart, onSetEnd, onClear, onCloseLoop, onGenerateLoop, onSelectLoop,
   onExportGPX, googleMapsUrl,
   savedRoutes, onSaveRoute, onLoadSavedRoute, onDeleteSavedRoute,
+  loadedRouteName, onUpdateRoute,
   onCollapse,
   soloRoute, setSoloRoute,
-  gpsStartAddress, onSwap,
-  isSignedIn,
+  gpsStartAddress, loadedFromAddress, loadedToAddress, onSwap,
+  busy = false,
 }: RunPanelProps) {
+  const [activeTab, setActiveTab] = useState<"plan" | "saved">("plan");
+  const hasSaved = savedRoutes.length > 0;
+  // Fall back to Plan if the Saved tab empties out (e.g. last route deleted).
+  const tab = hasSaved ? activeTab : "plan";
+
   return (
     /* Double-bezel shell: outer gradient ring → inner card */
     <div
@@ -114,8 +128,46 @@ export default function RunPanel({
 
       <Separator className="bg-border shrink-0" />
 
+      {/* Global loading bar — route generation, saving, updating */}
+      <div className="shrink-0 h-[2px]">{busy && <div className="loader-bar" />}</div>
+
+      {/* Tab bar — only shown once there are saved routes */}
+      {hasSaved && (
+        <div className="px-4 pt-3 pb-1 shrink-0">
+          <div className="flex bg-black/20 rounded-[9px] p-[3px] gap-[3px] border border-white/[0.05]">
+            {([
+              { id: "plan", label: "Plan" },
+              { id: "saved", label: `Saved (${savedRoutes.length})` },
+            ] as const).map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className={cn(
+                  "flex-1 py-1.5 text-xs font-medium rounded-[6px] transition-all duration-200",
+                  tab === t.id
+                    ? "bg-card text-foreground shadow-[0_1px_4px_rgba(0,0,0,0.4)] font-semibold"
+                    : "text-muted-foreground hover:text-foreground/80"
+                )}
+                onClick={() => setActiveTab(t.id)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Scrollable content */}
       <div className="panel-scroll flex flex-col flex-1 overflow-y-auto overflow-x-hidden min-h-0">
+        {tab === "saved" ? (
+          <SavedRoutesSection
+            savedRoutes={savedRoutes}
+            onLoadSavedRoute={onLoadSavedRoute}
+            onEditSavedRoute={(route) => { onLoadSavedRoute(route); setActiveTab("plan"); }}
+            onDeleteSavedRoute={onDeleteSavedRoute}
+          />
+        ) : (
+          <>
         <AddressSection
           onSetStart={onSetStart}
           onSetEnd={onSetEnd}
@@ -123,6 +175,9 @@ export default function RunPanel({
           disabled={loading}
           viewbox={mapBounds}
           gpsStartAddress={gpsStartAddress}
+          startPoint={startPoint}
+          startAddress={loadedFromAddress}
+          endAddress={loadedToAddress}
         />
 
         <Separator className="bg-border" />
@@ -167,12 +222,8 @@ export default function RunPanel({
           onExportGPX={onExportGPX}
           googleMapsUrl={googleMapsUrl}
           onSaveRoute={onSaveRoute}
-        />
-
-        <SavedRoutesSection
-          savedRoutes={savedRoutes}
-          onLoadSavedRoute={onLoadSavedRoute}
-          onDeleteSavedRoute={onDeleteSavedRoute}
+          loadedRouteName={loadedRouteName}
+          onUpdateRoute={onUpdateRoute}
         />
 
         <div className="px-4 py-3 text-xs text-muted-foreground/40 leading-relaxed border-t border-border/50">
@@ -182,6 +233,8 @@ export default function RunPanel({
           </a>
           {" · "}Routing: Valhalla · Right-click marker to remove · Drag route to reshape
         </div>
+          </>
+        )}
       </div>
       </div>
     </div>

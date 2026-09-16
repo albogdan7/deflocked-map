@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Download, ExternalLink, Bookmark, X } from "lucide-react";
+import { Download, ExternalLink, Bookmark, X, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -12,14 +12,18 @@ interface ExportSectionProps {
   onExportGPX: () => void;
   googleMapsUrl: string | null;
   onSaveRoute: (name: string) => void;
+  loadedRouteName: string | null;
+  onUpdateRoute: () => void;
 }
 
 export function ExportSection({
   routeStats, loading, error, onExportGPX, googleMapsUrl, onSaveRoute,
+  loadedRouteName, onUpdateRoute,
 }: ExportSectionProps) {
   const [saving, setSaving] = useState(false);
   const [saveName, setSaveName] = useState("");
   const [saveFeedback, setSaveFeedback] = useState(false);
+  const [updateFeedback, setUpdateFeedback] = useState(false);
 
   function doSave(name: string) {
     onSaveRoute(name.trim() || `Route ${new Date().toLocaleDateString()}`);
@@ -27,6 +31,12 @@ export function ExportSection({
     setSaveName("");
     setSaveFeedback(true);
     setTimeout(() => setSaveFeedback(false), 2000);
+  }
+
+  function doUpdate() {
+    onUpdateRoute();
+    setUpdateFeedback(true);
+    setTimeout(() => setUpdateFeedback(false), 2000);
   }
 
   return (
@@ -59,6 +69,19 @@ export function ExportSection({
             </Button>
           )}
         </div>
+
+        {updateFeedback ? (
+          <p className="text-xs text-primary text-center py-1">Changes saved!</p>
+        ) : loadedRouteName && !saving ? (
+          <Button
+            size="sm"
+            className="w-full text-xs gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={doUpdate}
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Update “{loadedRouteName}”
+          </Button>
+        ) : null}
 
         {saveFeedback ? (
           <p className="text-xs text-primary text-center py-1">Route saved!</p>

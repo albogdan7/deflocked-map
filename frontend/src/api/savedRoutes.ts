@@ -1,4 +1,13 @@
-import type { SavedRoute } from "../types";
+import type { RouteGeoJson, RouteStats, SavedRoute } from "../types";
+
+export interface SaveRouteBody {
+  name: string;
+  waypoints: Array<{ lat: number; lon: number }>;
+  mode: string;
+  miles: number;
+  geometry?: RouteGeoJson | null;
+  stats?: RouteStats | null;
+}
 
 export const LS_KEY = "deflockFitness_savedRoutes";
 
@@ -49,7 +58,10 @@ export async function migrateLocalToRemote(
       fetch("/api/routes", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...auth },
-        body: JSON.stringify({ name: r.name, waypoints: r.waypoints, mode: r.mode, miles: r.actualMiles }),
+        body: JSON.stringify({
+          name: r.name, waypoints: r.waypoints, mode: r.mode, miles: r.actualMiles,
+          geometry: r.route ?? null, stats: r.stats ?? null,
+        }),
       })
         .then((res) => { if (res.ok) succeeded.push(i); }, () => {})
     )
@@ -69,7 +81,7 @@ export async function migrateLocalToRemote(
 }
 
 export async function saveRemoteRoute(
-  body: { name: string; waypoints: Array<{ lat: number; lon: number }>; mode: string; miles: number },
+  body: SaveRouteBody,
   getToken: () => Promise<string | null>
 ): Promise<{ id: number | string }> {
   const auth = await authHeaders(getToken);
@@ -80,6 +92,20 @@ export async function saveRemoteRoute(
   });
   if (!res.ok) throw new Error(`Save failed: ${res.status}`);
   return res.json() as Promise<{ id: number | string }>;
+}
+
+export async function updateRemoteRoute(
+  id: number | string,
+  body: SaveRouteBody,
+  getToken: () => Promise<string | null>
+): Promise<void> {
+  const auth = await authHeaders(getToken);
+  const res = await fetch(`/api/routes/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...auth },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Update failed: ${res.status}`);
 }
 
 export async function deleteRemoteRoute(

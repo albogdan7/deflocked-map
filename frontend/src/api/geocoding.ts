@@ -39,11 +39,23 @@ function distSq(lat1: number, lon1: number, lat2: number, lon2: number): number 
   return dlat * dlat + dlon * dlon;
 }
 
+export interface GeoPoint { lat: number; lon: number; }
+
+// Equirectangular approximation — plenty accurate for a ~20 mi radius check.
+const MILES_PER_DEGREE = 69.0;
+function distMiles(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const dlat = (lat1 - lat2) * MILES_PER_DEGREE;
+  const dlon = (lon1 - lon2) * MILES_PER_DEGREE * Math.cos((lat1 * Math.PI) / 180);
+  return Math.sqrt(dlat * dlat + dlon * dlon);
+}
+
 export async function nominatim(
   q: string,
   viewbox: string | null,
   bounded: boolean,
-  limit = 5
+  limit = 5,
+  origin: GeoPoint | null = null,
+  maxMiles = 0
 ): Promise<NominatimResult[]> {
   const p = new URLSearchParams({ q, format: "json", limit: String(limit), countrycodes: "us", addressdetails: "1" });
   if (viewbox) {
@@ -55,7 +67,13 @@ export async function nominatim(
   });
   if (!res.ok) throw new Error(`Geocoding failed: ${res.status}`);
   const data: unknown = await res.json();
-  const results = Array.isArray(data) ? (data as NominatimResult[]) : [];
+  let results = Array.isArray(data) ? (data as NominatimResult[]) : [];
+  // Drop anything beyond maxMiles of the origin (e.g. the start waypoint).
+  if (origin && maxMiles > 0) {
+    results = results.filter(
+      (r) => distMiles(parseFloat(r.lat), parseFloat(r.lon), origin.lat, origin.lon) <= maxMiles
+    );
+  }
   // Sort by proximity to map center so the nearest match ranks first.
   const center = viewbox ? viewboxCenter(viewbox) : null;
   if (center) {
