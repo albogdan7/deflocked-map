@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddressSearch } from "./AddressSearch";
+import type { GeoPoint } from "../../api/geocoding";
 
 interface AddressSectionProps {
   onSetStart: (lat: number, lon: number) => void;
@@ -10,10 +11,16 @@ interface AddressSectionProps {
   disabled: boolean;
   viewbox: string | null;
   gpsStartAddress: string | null;
+  // The first waypoint (start); destination results are limited to 20 mi of it.
+  startPoint: GeoPoint | null;
+  // Reverse-geocoded addresses pushed in when a saved route is opened.
+  startAddress: string | null;
+  endAddress: string | null;
 }
 
 export function AddressSection({
-  onSetStart, onSetEnd, onSwap, disabled, viewbox, gpsStartAddress,
+  onSetStart, onSetEnd, onSwap, disabled, viewbox, gpsStartAddress, startPoint,
+  startAddress, endAddress,
 }: AddressSectionProps) {
   const [startText, setStartText] = useState("");
   const [endText, setEndText] = useState("");
@@ -21,6 +28,14 @@ export function AddressSection({
   useEffect(() => {
     if (gpsStartAddress) setStartText(gpsStartAddress);
   }, [gpsStartAddress]);
+
+  // Populate From/To when a saved route is opened.
+  useEffect(() => {
+    if (startAddress != null) setStartText(startAddress);
+  }, [startAddress]);
+  useEffect(() => {
+    if (endAddress != null) setEndText(endAddress);
+  }, [endAddress]);
 
   const canSwap = !disabled && (!!startText || !!endText);
 
@@ -63,6 +78,7 @@ export function AddressSection({
         viewbox={viewbox}
         syncValue={endText}
         onValueChange={setEndText}
+        origin={startPoint}
       />
     </div>
   );

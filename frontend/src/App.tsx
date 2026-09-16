@@ -2,9 +2,11 @@ import { useState, useCallback } from "react";
 import { useAuth } from "@clerk/clerk-react";
 import MapView from "./components/MapView";
 import RunPanel from "./components/RunPanel";
+import { ConfirmDialog } from "./components/ConfirmDialog";
 import { useRouteBuilder } from "./hooks/useRouteBuilder";
 import { useGps } from "./hooks/useGps";
 import { useSavedRoutes } from "./hooks/useSavedRoutes";
+import { reverseGeocode } from "./api/geocoding";
 import type { CameraFeature, SavedRoute } from "./types";
 
 export default function App() {
@@ -27,6 +29,7 @@ export default function App() {
     route, camerasOnRoute, loading, error, routeStats,
     loopOptions, activeLoopIdx,
     generateLoop, selectLoop, exportGPX, googleMapsUrl,
+    dirty, markClean,
   } = useRouteBuilder({ mode });
 
   const {
@@ -34,15 +37,26 @@ export default function App() {
     handleGpsPosition, handleGpsError, toggleGps,
   } = useGps({ userSetStartRef, onGpsStart: setGpsStart });
 
-  const { savedRoutes, save: saveSavedRoute, remove: deleteSavedRoute } = useSavedRoutes(
-    isSignedIn,
-    userId ?? null,
-    getToken
-  );
+  const {
+    savedRoutes, busy: savedBusy,
+    save: saveSavedRoute, update: updateSavedRoute, remove: deleteSavedRoute,
+  } = useSavedRoutes(isSignedIn, userId ?? null, getToken);
+
+  // The saved route currently open, so "Update" knows what to overwrite.
+  const [loadedRoute, setLoadedRoute] = useState<SavedRoute | null>(null);
+  // A saved route the user clicked while there was unsaved work — awaiting confirm.
+  const [pendingLoad, setPendingLoad] = useState<SavedRoute | null>(null);
+  // Bumped whenever a saved route is opened, to tell the map to recenter on it.
+  const [fitSignal, setFitSignal] = useState(0);
+  // Address text for the From/To fields when a saved route is opened, reverse-
+  // geocoded from its endpoints (saved routes store only coordinates).
+  const [loadedFromAddr, setLoadedFromAddr] = useState<string | null>(null);
+  const [loadedToAddr, setLoadedToAddr] = useState<string | null>(null);
 
   const handleClear = useCallback(() => {
     clear();
     setSoloRoute(false);
+    setLoadedRoute(null);
   }, [clear]);
 
   const handleGenerateLoop = useCallback(async () => {
@@ -57,18 +71,56 @@ export default function App() {
 
   const handleSaveRoute = useCallback(async (name: string) => {
     if (!route) return;
-    await saveSavedRoute({
+    const created = await saveSavedRoute({
       name: name || `Route ${new Date().toLocaleDateString()}`,
       waypoints: waypoints.map((wp) => ({ lat: wp.lat, lon: wp.lon })),
       mode,
       miles: routeStats?.length ?? 0,
+      geometry: route,
+      stats: routeStats,
     });
-  }, [route, saveSavedRoute, waypoints, mode, routeStats]);
+    setLoadedRoute(created);
+    markClean();
+  }, [route, saveSavedRoute, waypoints, mode, routeStats, markClean]);
+
+  const openRoute = useCallback((entry: SavedRoute) => {
+    setMode(entry.mode);
+    loadRoute(entry.waypoints, { route: entry.route, stats: entry.stats });
+    setLoadedRoute(entry);
+    setFitSignal((n) => n + 1);
+    // Reverse-geocode the endpoints so the From/To fields show real addresses.
+    const wps = entry.waypoints;
+    const start = wps[0];
+    const end = wps.length >= 2 ? wps[wps.length - 1] : null;
+    setLoadedFromAddr(null);
+    setLoadedToAddr(end ? null : "");
+    if (start) reverseGeocode(start.lat, start.lon).then(setLoadedFromAddr).catch(() => {});
+    if (end) reverseGeocode(end.lat, end.lon).then(setLoadedToAddr).catch(() => {});
+  }, [loadRoute]);
 
   const handleLoadSavedRoute = useCallback((entry: SavedRoute) => {
-    setMode(entry.mode);
-    loadRoute(entry.waypoints);
-  }, [loadRoute]);
+    // Only interrupt if there's unsaved current work to lose.
+    if (dirty && (route || waypoints.length > 0)) {
+      setPendingLoad(entry);
+    } else {
+      openRoute(entry);
+    }
+  }, [dirty, route, waypoints.length, openRoute]);
+
+  const handleUpdateRoute = useCallback(async () => {
+    if (!loadedRoute || !route) return;
+    const body = {
+      name: loadedRoute.name,
+      waypoints: waypoints.map((wp) => ({ lat: wp.lat, lon: wp.lon })),
+      mode,
+      miles: routeStats?.length ?? 0,
+      geometry: route,
+      stats: routeStats,
+    };
+    await updateSavedRoute(loadedRoute.id, body);
+    setLoadedRoute((prev) => (prev ? { ...prev, ...body, actualMiles: body.miles, route: body.geometry, stats: body.stats } : prev));
+    markClean();
+  }, [loadedRoute, route, waypoints, mode, routeStats, updateSavedRoute, markClean]);
 
   return (
     <div className="app">
@@ -91,6 +143,7 @@ export default function App() {
         soloRoute={soloRoute}
         onGpsPosition={handleGpsPosition}
         onGpsError={handleGpsError}
+        fitSignal={fitSignal}
       />
 
       {/* Floating map action buttons */}
@@ -168,9 +221,11 @@ export default function App() {
           targetMiles={targetMiles}
           setTargetMiles={setTargetMiles}
           waypointCount={waypoints.length}
+          startPoint={waypoints.length > 0 ? { lat: waypoints[0].lat, lon: waypoints[0].lon } : null}
           loopOptions={loopOptions}
           activeLoopIdx={activeLoopIdx}
           loading={loading}
+          busy={loading || savedBusy}
           error={error}
           routeStats={routeStats}
           mapBounds={mapBounds}
@@ -186,14 +241,28 @@ export default function App() {
           onSaveRoute={handleSaveRoute}
           onLoadSavedRoute={handleLoadSavedRoute}
           onDeleteSavedRoute={deleteSavedRoute}
+          loadedRouteName={dirty ? loadedRoute?.name ?? null : null}
+          onUpdateRoute={handleUpdateRoute}
           onCollapse={() => setPanelOpen(false)}
           soloRoute={soloRoute}
           setSoloRoute={setSoloRoute}
           gpsStartAddress={gpsStartAddress}
+          loadedFromAddress={loadedFromAddr}
+          loadedToAddress={loadedToAddr}
           onSwap={reverseRoute}
           isSignedIn={!!isSignedIn}
         />
       )}
+
+      <ConfirmDialog
+        open={!!pendingLoad}
+        title="Discard current route?"
+        body={pendingLoad ? `You have unsaved changes. Open "${pendingLoad.name}" and discard your current route?` : ""}
+        confirmLabel="Discard & open"
+        cancelLabel="Keep editing"
+        onConfirm={() => { if (pendingLoad) openRoute(pendingLoad); setPendingLoad(null); }}
+        onCancel={() => setPendingLoad(null)}
+      />
     </div>
   );
 }

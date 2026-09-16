@@ -61,6 +61,7 @@ interface MapViewProps {
   soloRoute: boolean;
   onGpsPosition: (lat: number, lon: number) => void;
   onGpsError: (msg: string) => void;
+  fitSignal: number;
 }
 
 export default function MapView({
@@ -70,6 +71,7 @@ export default function MapView({
   onAddWaypoint, onInsertWaypoint, onUpdateWaypoint, onRemoveWaypoint,
   onSelectLoop, gpsEnabled, showHeatmap, soloRoute,
   onGpsPosition, onGpsError,
+  fitSignal,
 }: MapViewProps) {
   const mapRef = useRef<MapRef>(null);
   const [cursor, setCursor] = useState("crosshair");
@@ -112,7 +114,7 @@ export default function MapView({
     return () => navigator.geolocation.clearWatch(watchId);
   }, [gpsEnabled, onGpsPosition, onGpsError]);
 
-  // Fly to first waypoint
+  // Fly to first waypoint (manual placement / GPS / single-point start)
   const prevWpLenRef = useRef(0);
   useEffect(() => {
     if (waypoints.length === 1 && prevWpLenRef.current <= 1) {
@@ -120,6 +122,30 @@ export default function MapView({
     }
     prevWpLenRef.current = waypoints.length;
   }, [waypoints]);
+
+  // Recenter onto a freshly loaded saved route. Uses an explicit signal (not a
+  // waypoints watcher) so editing an active route never yanks the view.
+  useEffect(() => {
+    if (!fitSignal) return;
+    const map = mapRef.current;
+    if (!map) return;
+    const coords: [number, number][] = route?.geometry.coordinates?.length
+      ? (route.geometry.coordinates as [number, number][])
+      : waypoints.map((w) => [w.lon, w.lat]);
+    if (coords.length === 0) return;
+    if (coords.length === 1) {
+      map.flyTo({ center: coords[0], zoom: Math.max(map.getZoom() ?? 5, 14) });
+      return;
+    }
+    let minLon = Infinity, minLat = Infinity, maxLon = -Infinity, maxLat = -Infinity;
+    for (const [lon, lat] of coords) {
+      if (lon < minLon) minLon = lon;
+      if (lon > maxLon) maxLon = lon;
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+    }
+    map.fitBounds([[minLon, minLat], [maxLon, maxLat]], { padding: 80, duration: 800, maxZoom: 15 });
+  }, [fitSignal]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Viewport camera loader
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);

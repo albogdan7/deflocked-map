@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from "react";
-import { nominatim, formatLabel, type NominatimResult } from "../../api/geocoding";
+import { nominatim, formatLabel, type GeoPoint, type NominatimResult } from "../../api/geocoding";
 import { Input } from "@/components/ui/input";
+
+const MAX_RESULT_MILES = 20;
 
 interface AddressSearchProps {
   label: string;
@@ -10,11 +12,14 @@ interface AddressSearchProps {
   viewbox: string | null;
   syncValue?: string | null;
   onValueChange?: (value: string) => void;
+  // When set, results farther than 20 mi from this point are hidden.
+  origin?: GeoPoint | null;
 }
 
 export function AddressSearch({
-  label, placeholder, onSelect, disabled, viewbox, syncValue, onValueChange,
+  label, placeholder, onSelect, disabled, viewbox, syncValue, onValueChange, origin = null,
 }: AddressSearchProps) {
+  const maxMiles = origin ? MAX_RESULT_MILES : 0;
   const [value, setValue] = useState("");
   const [suggestions, setSuggestions] = useState<NominatimResult[]>([]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -34,8 +39,8 @@ export function AddressSearch({
     const seq = ++fetchSeqRef.current;
     debounceRef.current = setTimeout(async () => {
       try {
-        let data = await nominatim(q, viewbox, true);
-        if (!data.length) data = await nominatim(q, viewbox, false);
+        let data = await nominatim(q, viewbox, true, 5, origin, maxMiles);
+        if (!data.length) data = await nominatim(q, viewbox, false, 5, origin, maxMiles);
         if (seq === fetchSeqRef.current) setSuggestions(data);
       } catch {
         if (seq === fetchSeqRef.current) setSuggestions([]);
@@ -61,8 +66,8 @@ export function AddressSearch({
       const q = value.trim();
       if (!q) return;
       try {
-        let data = await nominatim(q, viewbox, true, 1);
-        if (!data.length) data = await nominatim(q, viewbox, false, 1);
+        let data = await nominatim(q, viewbox, true, 1, origin, maxMiles);
+        if (!data.length) data = await nominatim(q, viewbox, false, 1, origin, maxMiles);
         if (data.length) pick(data[0]);
       } catch {}
     }

@@ -172,12 +172,12 @@ def get_route(waypoints: list, mode: str, exclude_cameras: list) -> dict:
         # Return None (not a fallback) so callers can try a different bearing
         # rather than surfacing a camera-filled path.
         body["exclude_polygons"] = _camera_exclusion_polygons(exclude_cameras)
-        resp = requests.post(f"{VALHALLA_URL}/route", json=body, timeout=20)
+        resp = requests.post(f"{VALHALLA_URL}/route", json=body, timeout=10)
         if resp.ok:
             return resp.json()
         return None
     else:
-        resp = requests.post(f"{VALHALLA_URL}/route", json=body, timeout=20)
+        resp = requests.post(f"{VALHALLA_URL}/route", json=body, timeout=10)
         resp.raise_for_status()
         return resp.json()
 
@@ -222,7 +222,7 @@ def _loop_one_bearing(start_lat, start_lon, target_miles, mode, nearby_cameras, 
     Iterative avoidance for one bearing direction.
     Returns (result, wps, actual_miles, cameras_remaining_count).
     """
-    MAX_AVOIDANCE_PASSES = 5
+    MAX_AVOIDANCE_PASSES = 3
     n_points = 4
 
     def route_with_scale(exclusions):
@@ -290,7 +290,7 @@ def generate_loop(start_lat, start_lon, target_miles, mode, nearby_cameras):
     Returns a list of (valhalla_response, waypoints, actual_miles, cam_count)
     sorted by cam_count asc, then by distance-to-target asc.
     """
-    MAX_BEARING_ATTEMPTS = 5
+    MAX_BEARING_ATTEMPTS = 3
     results = []
 
     for _ in range(MAX_BEARING_ATTEMPTS):
@@ -315,11 +315,13 @@ def _miles_between(lat1, lon1, lat2, lon2) -> float:
 
 
 def _detour_waypoints(start_lat, start_lon, end_lat, end_lon,
-                      amplitude_miles, side, n_points, alternate):
+                      amplitude_miles, side, n_points, alternate, rot_deg=0.0):
     """
-    Build [start, via…, end] with interior via-points bowed perpendicular to
-    the A→B line. Bow follows a sine envelope (0 at both ends, max in middle).
-    `side` is +1/-1; when `alternate`, successive vias flip sides (S-curve).
+    Build [start, via…, end] with interior via-points bowed off the A→B line.
+    Bow follows a sine envelope (0 at both ends, max in middle). `side` is +1/-1;
+    when `alternate`, successive vias flip sides (S-curve). `rot_deg` rotates the
+    bow direction off the perpendicular, so the detour can aim in many directions
+    (used to steer toward camera-sparse areas), not just left/right.
     """
     if amplitude_miles <= 0 or n_points <= 0:
         return [[start_lat, start_lon], [end_lat, end_lon]]
@@ -332,8 +334,11 @@ def _detour_waypoints(start_lat, start_lon, end_lat, end_lon,
     dlon_scaled = (end_lon - start_lon) * cos_mid
     seg = math.hypot(dlat, dlon_scaled) or 1e-9
     ua_lat, ua_lon = dlat / seg, dlon_scaled / seg
-    # Perpendicular (rotate 90°) in the same scaled space.
+    # Perpendicular (rotate 90°) in the same scaled space, then rotate by rot_deg.
     p_lat, p_lon = -ua_lon, ua_lat
+    if rot_deg:
+        cr, sr = math.cos(math.radians(rot_deg)), math.sin(math.radians(rot_deg))
+        p_lat, p_lon = p_lat * cr - p_lon * sr, p_lat * sr + p_lon * cr
 
     pts = [[start_lat, start_lon]]
     for i in range(1, n_points + 1):
@@ -350,18 +355,18 @@ def _detour_waypoints(start_lat, start_lon, end_lat, end_lon,
 
 
 def _route_one_variant(start_lat, start_lon, end_lat, end_lon,
-                       target_miles, mode, nearby_cameras, side, n_points, alternate):
+                       target_miles, mode, nearby_cameras, side, n_points, alternate, rot_deg=0.0):
     """A→B analogue of _loop_one_bearing for a single detour shape."""
-    MAX_AVOIDANCE_PASSES = 5
+    MAX_AVOIDANCE_PASSES = 3
     direct_road = _miles_between(start_lat, start_lon, end_lat, end_lon) * 1.3
 
     def route_with_scale(exclusions):
         # Initial guess: bow just enough to add the missing length.
         amp = max(0.0, target_miles - direct_road) * 0.6
         best = (None, None, 0.0)
-        for _ in range(5):
+        for _ in range(3):
             wps = _detour_waypoints(start_lat, start_lon, end_lat, end_lon,
-                                    amp, side, n_points, alternate)
+                                    amp, side, n_points, alternate, rot_deg)
             result = get_route(wps, mode, exclusions)
             if result is None:
                 return (None, wps, 0.0)
@@ -440,25 +445,80 @@ def _direct_route(start_lat, start_lon, end_lat, end_lon, mode, nearby_cameras):
     return result, wps, actual, len(on_route)
 
 
+def _via_path_points(via_wps, step_miles=0.15):
+    """Densify the straight segments between via waypoints into (lat, lon) samples."""
+    pts = []
+    for i in range(len(via_wps) - 1):
+        la1, lo1 = via_wps[i]
+        la2, lo2 = via_wps[i + 1]
+        seg = _miles_between(la1, lo1, la2, lo2)
+        n = max(1, int(seg / step_miles))
+        for k in range(n):
+            f = k / n
+            pts.append((la1 + (la2 - la1) * f, lo1 + (lo2 - lo1) * f))
+    pts.append((via_wps[-1][0], via_wps[-1][1]))
+    return pts
+
+
+def _detour_camera_score(via_wps, cameras, radius_m=110.0):
+    """
+    Free (no Valhalla) proxy for how many cameras a detour shape will pass:
+    count cameras whose zone the straight via-path comes within radius_m of.
+    Lower is better. Lets us rank many shapes cheaply and only route the best.
+    """
+    if not cameras:
+        return 0
+    samples = _via_path_points(via_wps)
+    count = 0
+    for cam in cameras:
+        clat = cam["geometry"]["coordinates"][1]
+        clon = cam["geometry"]["coordinates"][0]
+        if any(_haversine(la, lo, clat, clon) <= radius_m for la, lo in samples):
+            count += 1
+    return count
+
+
 def generate_route(start_lat, start_lon, end_lat, end_lon, target_miles, mode, nearby_cameras):
     """
-    Generate up to 5 A→B options padded toward target_miles, each with
-    iterative camera avoidance. Always includes a direct route as a safety
-    net so the caller can never end up with nothing. Sorted by camera count
-    asc, then distance-to-target asc.
+    Generate A→B options padded toward target_miles. Instead of a few fixed
+    detour shapes, sweep many candidate directions/shapes, score each by camera
+    exposure for free, and only route the sparsest few (same Valhalla budget,
+    smarter shapes). Always includes a direct route. Sorted by camera count asc,
+    then distance-to-target asc.
     """
-    variants = [
-        (1, 1, False),   # single bow, one side
-        (-1, 1, False),  # single bow, other side
-        (1, 2, True),    # S-curve
-        (-1, 2, True),   # S-curve, mirrored
-        (1, 3, False),   # wider arc
-    ]
+    N_ROUTED = 3  # how many low-exposure candidates we actually route
+
+    # Candidate pool: sweep bow directions (side × rotation off perpendicular)
+    # and a couple of shapes. Scored geometrically, so the pool can be large.
+    est_amp = max(0.05, (target_miles - _miles_between(start_lat, start_lon, end_lat, end_lon) * 1.3) * 0.6)
+    shapes = [(1, False), (2, True), (2, False)]  # (n_points, alternate)
+    scored = []
+    for side in (1, -1):
+        for rot_deg in (0.0, 30.0, -30.0, 60.0, -60.0):
+            for n_points, alternate in shapes:
+                via = _detour_waypoints(start_lat, start_lon, end_lat, end_lon,
+                                        est_amp, side, n_points, alternate, rot_deg)
+                score = _detour_camera_score(via, nearby_cameras)
+                scored.append((score, side, rot_deg, n_points, alternate))
+
+    # Pick the lowest-exposure candidates, keeping directions diverse.
+    scored.sort(key=lambda c: c[0])
+    chosen = []
+    seen_dirs = set()
+    for score, side, rot_deg, n_points, alternate in scored:
+        dir_key = (side, rot_deg)
+        if dir_key in seen_dirs:
+            continue
+        seen_dirs.add(dir_key)
+        chosen.append((side, rot_deg, n_points, alternate))
+        if len(chosen) >= N_ROUTED:
+            break
+
     results = []
-    for side, n_points, alternate in variants:
+    for side, rot_deg, n_points, alternate in chosen:
         r, w, a, c = _route_one_variant(
             start_lat, start_lon, end_lat, end_lon,
-            target_miles, mode, nearby_cameras, side, n_points, alternate
+            target_miles, mode, nearby_cameras, side, n_points, alternate, rot_deg
         )
         if r and a > 0:
             results.append((r, w, a, c))

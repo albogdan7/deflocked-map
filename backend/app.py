@@ -124,6 +124,10 @@ class SaveRouteRequest(BaseModel):
     waypoints: list[WaypointItem] = Field(..., min_length=1, max_length=100)
     mode: str = Field(default="walk", pattern="^(walk|bike)$")
     miles: float = Field(default=0.0, ge=0.0, le=10_000.0)
+    # Optional computed route geometry (GeoJSON Feature) + stats, so loading a
+    # saved route can draw instantly without re-routing.
+    geometry: dict | None = None
+    stats: dict | None = None
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -168,16 +172,29 @@ def post_route(body: RouteRequest):
     all_coords = routing.decode_trip_coords(trip)
 
     if body.avoid_cameras and nearby:
-        on_route = routing.cameras_near_route(all_coords, nearby)
-        if on_route:
-            try:
-                second_pass = routing.get_route(body.waypoints, body.mode, on_route)
-                if second_pass is None:
-                    second_pass = first_pass
-            except Exception:
-                second_pass = first_pass
-            trip = second_pass.get("trip", {})
-            all_coords = routing.decode_trip_coords(trip)
+        # Iteratively exclude cameras until the route is clean, no new cameras
+        # appear, or the exclusions make routing impossible. A single pass isn't
+        # enough: avoiding the first batch can push the path onto a new camera.
+        MAX_AVOIDANCE_PASSES = 5
+        excluded_keys: set = set()
+        excluded: list = []
+        for _ in range(MAX_AVOIDANCE_PASSES):
+            on_route = routing.cameras_near_route(all_coords, nearby)
+            if not on_route:
+                break
+            new_cams = [c for c in on_route if routing._cam_key(c) not in excluded_keys]
+            if not new_cams:
+                break  # same cameras re-detected — their roads can't be avoided
+            for c in new_cams:
+                excluded_keys.add(routing._cam_key(c))
+            excluded = [c for c in nearby if routing._cam_key(c) in excluded_keys]
+            nxt = routing.get_route(body.waypoints, body.mode, excluded)
+            if nxt is None:
+                break  # exclusions blocked all paths — keep the best route so far
+            nxt_coords = routing.decode_trip_coords(nxt.get("trip", {}))
+            if not nxt_coords:
+                break
+            trip, all_coords = nxt.get("trip", {}), nxt_coords
 
     cameras_on = routing.cameras_near_route(all_coords, nearby) if body.avoid_cameras else []
 
@@ -200,8 +217,12 @@ def post_loop(body: LoopRequest):
     start_lat, start_lon = body.start[0], body.start[1]
     target_miles = body.miles
 
-    radius_deg = (target_miles / (2 * 3.14159 * 69.0)) * 1.5
-    # Camera bbox must cover both endpoints (plus padding) for an A→B route.
+    # A padded route can bow far out from its endpoints, so the camera bbox must
+    # cover the whole detour reach (~0.45 × target miles), not just the endpoints.
+    # Otherwise cameras out where the route actually goes are invisible to both
+    # detection and avoidance, and long routes falsely look camera-free.
+    radius_miles = max(target_miles * 0.45, 1.2)
+    radius_deg = radius_miles / 69.0
     lats = [start_lat] + ([body.end[0]] if body.end else [])
     lons = [start_lon] + ([body.end[1]] if body.end else [])
     nearby = cam_store.get_in_bbox(
@@ -259,7 +280,9 @@ def get_routes(user_id: Annotated[str, Depends(_get_user_id)]):
         "waypoints": r[2],
         "mode": r[3],
         "actualMiles": r[4],
-        "date": r[5].strftime("%-m/%-d/%Y"),
+        "route": r[5],
+        "stats": r[6],
+        "date": r[7].strftime("%-m/%-d/%Y"),
     } for r in rows]
 
 
@@ -271,8 +294,27 @@ def save_route(body: SaveRouteRequest, user_id: Annotated[str, Depends(_get_user
         waypoints=[wp.model_dump() for wp in body.waypoints],
         mode=body.mode,
         miles=body.miles,
+        geometry=body.geometry,
+        stats=body.stats,
     )
     return {"id": new_id}
+
+
+@app.put("/api/routes/{route_id}")
+def update_route(route_id: int, body: SaveRouteRequest, user_id: Annotated[str, Depends(_get_user_id)]):
+    ok = db.update_route(
+        route_id=route_id,
+        user_id=user_id,
+        name=body.name,
+        waypoints=[wp.model_dump() for wp in body.waypoints],
+        mode=body.mode,
+        miles=body.miles,
+        geometry=body.geometry,
+        stats=body.stats,
+    )
+    if not ok:
+        raise HTTPException(status_code=404, detail="Route not found")
+    return {"id": route_id}
 
 
 @app.delete("/api/routes/{route_id}")

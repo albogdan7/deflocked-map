@@ -47,4 +47,8 @@ export interface SavedRoute {
   mode: string;
   actualMiles: number;
   date: string;
+  // Persisted computed geometry + stats. Absent on legacy routes saved before
+  // this existed — those fall back to re-routing on load.
+  route?: RouteGeoJson | null;
+  stats?: RouteStats | null;
 }

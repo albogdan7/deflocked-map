@@ -22,6 +22,23 @@ export function useRouteBuilder({ mode }: UseRouteBuilderOptions) {
   const [loopOptions, setLoopOptions] = useState<LoopOption[]>([]);
   const [activeLoopIdx, setActiveLoopIdx] = useState(0);
 
+  // "dirty" = the current route has unsaved changes. Cleared on load/clear/save.
+  const [dirty, setDirty] = useState(false);
+  const markClean = useCallback(() => setDirty(false), []);
+  // When a saved route with stored geometry is loaded, skip the one auto-fetch
+  // that its waypoint change would otherwise trigger — we already have the line.
+  const skipNextFetchRef = useRef(false);
+  // Skip the dirty-mark for programmatic waypoint changes (load/clear).
+  const skipDirtyRef = useRef(false);
+  const mountedRef = useRef(false);
+
+  // Any waypoint change is a user edit → dirty, except mount and load/clear.
+  useEffect(() => {
+    if (!mountedRef.current) { mountedRef.current = true; return; }
+    if (skipDirtyRef.current) { skipDirtyRef.current = false; return; }
+    setDirty(true);
+  }, [waypoints]);
+
   const clearLoops = useCallback(() => {
     setLoopOptions([]);
     setActiveLoopIdx(0);
@@ -30,6 +47,11 @@ export function useRouteBuilder({ mode }: UseRouteBuilderOptions) {
   // Auto-fetch when waypoints/mode/avoidCameras change (debounced 500ms).
   // Skipped when loopOptions are active — loop selection manages route directly.
   useEffect(() => {
+    // A saved route was just loaded with its own geometry — don't re-route it.
+    if (skipNextFetchRef.current) {
+      skipNextFetchRef.current = false;
+      return;
+    }
     if (loopOptions.length > 0) return;
     if (waypoints.length < 2) {
       setRoute(null);
@@ -150,15 +172,32 @@ export function useRouteBuilder({ mode }: UseRouteBuilderOptions) {
     setOutBackActive(false);
   }, [clearLoops]);
 
-  const loadRoute = useCallback((wps: Array<{ lat: number; lon: number }>) => {
+  const loadRoute = useCallback((
+    wps: Array<{ lat: number; lon: number }>,
+    opts?: { route?: RouteGeoJson | null; stats?: RouteStats | null }
+  ) => {
     userSetStartRef.current = false;
-    setWaypoints(wps.map((wp) => ({ id: nextId(), lat: wp.lat, lon: wp.lon })));
     clearLoops();
     setOutBackActive(false);
+    setError(null);
+    skipDirtyRef.current = true;
+    if (opts?.route) {
+      // Draw stored geometry directly; suppress the auto-fetch re-route.
+      skipNextFetchRef.current = true;
+      setRoute(opts.route);
+      setRouteStats(opts.stats ?? null);
+      setCamerasOnRoute([]);
+    } else {
+      // Legacy route with no stored geometry — let the auto-fetch re-route it.
+      skipNextFetchRef.current = false;
+    }
+    setWaypoints(wps.map((wp) => ({ id: nextId(), lat: wp.lat, lon: wp.lon })));
+    setDirty(false);
   }, [clearLoops]);
 
   const clear = useCallback(() => {
     userSetStartRef.current = false;
+    skipDirtyRef.current = true;
     setWaypoints([]);
     setOutBackActive(false);
     setRoute(null);
@@ -166,6 +205,7 @@ export function useRouteBuilder({ mode }: UseRouteBuilderOptions) {
     setRouteStats(null);
     setError(null);
     clearLoops();
+    setDirty(false);
   }, [clearLoops]);
 
   // ── Route handlers ────────────────────────────────────────────────────────────
@@ -262,5 +302,8 @@ export function useRouteBuilder({ mode }: UseRouteBuilderOptions) {
     selectLoop,
     exportGPX,
     googleMapsUrl,
+    // Unsaved-changes tracking
+    dirty,
+    markClean,
   };
 }
